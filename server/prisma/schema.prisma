@@ -12,3 +12,18 @@ model HealthCheck {
   checkedAt DateTime @default(now())
   status    String
 }
+
+enum SystemRole {
+  ADMIN
+  MEMBER
+}
+
+model User {
+  id           Int        @id @default(autoincrement())
+  name         String
+  email        String     @unique
+  passwordHash String
+  systemRole   SystemRole @default(MEMBER)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+}

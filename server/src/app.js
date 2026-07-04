@@ -1,12 +1,20 @@
 import express from 'express';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
 import { errorHandler } from './middleware/errorHandler.js';
 import healthRouter from './modules/health/health.router.js';
+import authRouter from './modules/auth/auth.routes.js';
 
 const app = express();
 
-// Enable Cross-Origin Resource Sharing for frontend client
-app.use(cors());
+// Enable Cross-Origin Resource Sharing with credentials support for frontend
+app.use(cors({
+  origin: 'http://localhost:5173',
+  credentials: true,
+}));
+
+// Parse HttpOnly cookie tokens
+app.use(cookieParser());
 
 // Parse incoming JSON requests
 app.use(express.json());
@@ -19,6 +27,7 @@ app.use((req, res, next) => {
 
 // Bind routers
 app.use('/api', healthRouter);
+app.use('/api/auth', authRouter);
 
 // Centralized Error Handling Middleware (must be registered last)
 app.use(errorHandler);
