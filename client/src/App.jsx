@@ -2,12 +2,14 @@ import React, { useState } from 'react';
 import { AuthProvider, useAuth } from './features/auth/context/AuthContext.jsx';
 import Login from './features/auth/components/Login.jsx';
 import Register from './features/auth/components/Register.jsx';
-import AppShell from './features/auth/components/AppShell.jsx';
+import MyProjects from './features/projects/components/MyProjects.jsx';
+import ProjectWorkspace from './features/projects/components/ProjectWorkspace.jsx';
 import { Loader2 } from 'lucide-react';
 
 function AppContent() {
   const { user, initializing } = useAuth();
   const [view, setView] = useState('login'); // 'login' or 'register'
+  const [activeProjectId, setActiveProjectId] = useState(null);
 
   if (initializing) {
     return (
@@ -32,7 +34,16 @@ function AppContent() {
     return <Login onSwitchToRegister={() => setView('register')} />;
   }
 
-  return <AppShell />;
+  if (activeProjectId) {
+    return (
+      <ProjectWorkspace
+        projectId={activeProjectId}
+        onBack={() => setActiveProjectId(null)}
+      />
+    );
+  }
+
+  return <MyProjects onSelectProject={setActiveProjectId} />;
 }
 
 export default function App() {

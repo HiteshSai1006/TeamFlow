@@ -19,11 +19,48 @@ enum SystemRole {
 }
 
 model User {
-  id           Int        @id @default(autoincrement())
-  name         String
-  email        String     @unique
-  passwordHash String
-  systemRole   SystemRole @default(MEMBER)
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  id                 Int             @id @default(autoincrement())
+  name               String
+  email              String          @unique
+  passwordHash       String
+  systemRole         SystemRole      @default(MEMBER)
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+  createdProjects    Project[]       @relation("CreatedProjects")
+  projectMemberships ProjectMember[]
+}
+
+enum ProjectStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+model Project {
+  id          Int             @id @default(autoincrement())
+  name        String
+  description String?
+  status      ProjectStatus   @default(ACTIVE)
+  createdById Int
+  createdBy   User            @relation("CreatedProjects", fields: [createdById], references: [id])
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  members     ProjectMember[]
+}
+
+enum ProjectRole {
+  MANAGER
+  MEMBER
+  REVIEWER
+}
+
+model ProjectMember {
+  id        Int         @id @default(autoincrement())
+  projectId Int
+  project   Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  userId    Int
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      ProjectRole
+  joinedAt  DateTime    @default(now())
+
+  @@unique([projectId, userId])
 }
