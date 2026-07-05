@@ -32,6 +32,7 @@ TeamFlow_Question_paper.docx
 # Local uploads storage
 /server/uploads/*
 !/server/uploads/.gitkeep
+/server/uploads/mock_emails.log
 
 # IDEs and Editors
 .vscode/

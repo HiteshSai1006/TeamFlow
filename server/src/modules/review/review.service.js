@@ -174,6 +174,28 @@ export async function decideReview(reviewId, { decision, comment }, actorUserId)
       });
     }
 
+    // Fetch all reviewers of the current round to notify them
+    const currentRoundReviewers = allReviews.map(r => r.reviewerId);
+
+    // Create EventOutbox row for RCA_REVIEW_DECIDED
+    await tx.eventOutbox.create({
+      data: {
+        eventType: 'RCA_REVIEW_DECIDED',
+        entityId: rcaId,
+        actorId: actorUserId,
+        metadata: {
+          rcaId,
+          rcaTitle: rca.title,
+          reviewId,
+          reviewRound: rca.reviewRound,
+          decision: decision,
+          rcaCreatorId: rca.createdById,
+          currentRoundReviewerIds: currentRoundReviewers,
+          actorId: actorUserId
+        }
+      }
+    });
+
     return {
       review: await tx.review.findUnique({
         where: { id: reviewId },

@@ -172,6 +172,22 @@ export async function createTask(projectId, taskData, createdById) {
       }
     });
 
+    if (createdTask.assigneeId) {
+      await tx.eventOutbox.create({
+        data: {
+          eventType: 'TASK_ASSIGNED',
+          entityId: createdTask.id,
+          actorId: createdById,
+          metadata: {
+            taskId: createdTask.id,
+            taskTitle: createdTask.title,
+            newAssigneeId: createdTask.assigneeId,
+            actorId: createdById
+          }
+        }
+      });
+    }
+
     return createdTask;
   });
 
@@ -446,6 +462,22 @@ export async function updateTask(projectId, taskId, updateData, actorUserId) {
           }
         }
       });
+
+      if (changes.assigneeId.after) {
+        await tx.eventOutbox.create({
+          data: {
+            eventType: 'TASK_ASSIGNED',
+            entityId: taskId,
+            actorId: actorUserId,
+            metadata: {
+              taskId,
+              taskTitle: t.title,
+              newAssigneeId: changes.assigneeId.after,
+              actorId: actorUserId
+            }
+          }
+        });
+      }
     }
 
     if (changes.status) {
@@ -458,6 +490,23 @@ export async function updateTask(projectId, taskId, updateData, actorUserId) {
           metadata: {
             before: changes.status.before,
             after: changes.status.after
+          }
+        }
+      });
+
+      await tx.eventOutbox.create({
+        data: {
+          eventType: 'TASK_STATUS_CHANGED',
+          entityId: taskId,
+          actorId: actorUserId,
+          metadata: {
+            taskId,
+            taskTitle: t.title,
+            oldStatus: changes.status.before,
+            newStatus: changes.status.after,
+            creatorId: t.createdById,
+            assigneeId: t.assigneeId,
+            actorId: actorUserId
           }
         }
       });

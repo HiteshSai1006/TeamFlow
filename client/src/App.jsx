@@ -4,6 +4,7 @@ import Login from './features/auth/components/Login.jsx';
 import Register from './features/auth/components/Register.jsx';
 import MyProjects from './features/projects/components/MyProjects.jsx';
 import ProjectWorkspace from './features/projects/components/ProjectWorkspace.jsx';
+import { NotificationProvider } from './features/projects/components/NotificationProvider.jsx';
 import { Loader2 } from 'lucide-react';
 
 function AppContent() {
@@ -49,7 +50,9 @@ function AppContent() {
 export default function App() {
   return (
     <AuthProvider>
-      <AppContent />
+      <NotificationProvider>
+        <AppContent />
+      </NotificationProvider>
     </AuthProvider>
   );
 }

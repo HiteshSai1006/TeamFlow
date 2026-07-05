@@ -4,6 +4,7 @@ import ProjectOverview from './ProjectOverview.jsx';
 import ProjectMembers from './ProjectMembers.jsx';
 import TasksTab from './TasksTab.jsx';
 import RcasTab from './RcasTab.jsx';
+import NavbarNotificationBell from './NavbarNotificationBell.jsx';
 
 export default function ProjectWorkspace({ projectId, onBack }) {
   const [project, setProject] = useState(null);
@@ -130,24 +131,26 @@ export default function ProjectWorkspace({ projectId, onBack }) {
             )}
           </div>
 
-          {/* Archived Flag Banner */}
-          {project?.status === 'ARCHIVED' && (
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              background: 'rgba(239, 68, 68, 0.08)',
-              border: '1px solid rgba(239, 68, 68, 0.2)',
-              borderRadius: '8px',
-              padding: '8px 16px',
-              color: 'var(--color-danger)',
-              fontSize: '13px',
-              fontWeight: 600
-            }}>
-              <Archive size={16} />
-              <span>Project Archived (Read-Only)</span>
-            </div>
-          )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            {project?.status === 'ARCHIVED' && (
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                background: 'rgba(239, 68, 68, 0.08)',
+                border: '1px solid rgba(239, 68, 68, 0.2)',
+                borderRadius: '8px',
+                padding: '8px 16px',
+                color: 'var(--color-danger)',
+                fontSize: '13px',
+                fontWeight: 600
+              }}>
+                <Archive size={16} />
+                <span>Project Archived (Read-Only)</span>
+              </div>
+            )}
+            <NavbarNotificationBell />
+          </div>
         </div>
       </div>
 

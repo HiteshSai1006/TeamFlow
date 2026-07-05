@@ -1,6 +1,7 @@
 import app from './app.js';
 import env from './config/env.js';
 import prisma from './config/db.js';
+import { startNotificationWorkers, stopNotificationWorkers } from './services/email.worker.js';
 
 const startServer = async () => {
   // Test connection to the database
@@ -16,12 +17,17 @@ const startServer = async () => {
 
   const server = app.listen(env.PORT, () => {
     console.log(`[Server] TeamFlow API running on http://localhost:${env.PORT} in ${env.NODE_ENV} mode`);
+    // Start background workers
+    startNotificationWorkers();
   });
 
   // Handle graceful shutdowns
   const handleShutdown = async (signal) => {
     console.log(`[Server] Received ${signal}. Initializing graceful shutdown...`);
     
+    // Stop background workers
+    stopNotificationWorkers();
+
     server.close(async () => {
       console.log('[Server] HTTP server stopped.');
       try {

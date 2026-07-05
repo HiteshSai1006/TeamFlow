@@ -35,6 +35,9 @@ model User {
   uploadedAttachments Attachment[]
   createdRCAs        RCA[]           @relation("CreatedRCAs")
   reviews            Review[]
+  eventOutboxes      EventOutbox[]
+  notifications      Notification[]
+  notificationPreference UserNotificationPreference?
 }
 
 enum ProjectStatus {
@@ -244,4 +247,74 @@ model Review {
   createdAt  DateTime       @default(now())
 
   @@unique([rcaId, reviewerId, round])
+}
+
+enum NotificationEventType {
+  TASK_ASSIGNED
+  TASK_STATUS_CHANGED
+  RCA_SUBMITTED
+  RCA_REVIEW_DECIDED
+}
+
+enum OutboxProcessingState {
+  PENDING
+  PROCESSING
+  PROCESSED
+  FAILED
+}
+
+enum EmailDeliveryState {
+  PENDING
+  PROCESSING
+  SENT
+  FAILED
+  SKIPPED_OPT_OUT
+}
+
+model EventOutbox {
+  id                 Int                   @id @default(autoincrement())
+  eventType          NotificationEventType
+  entityId           Int                   // taskId or rcaId
+  actorId            Int
+  actor              User                  @relation(fields: [actorId], references: [id], onDelete: Restrict)
+  metadata           Json                  // Immutable payload snapshot
+  processingState    OutboxProcessingState @default(PENDING)
+  processingAttempts Int                   @default(0)
+  processingError    String?
+  claimedAt          DateTime?
+  processedAt        DateTime?
+  createdAt          DateTime              @default(now())
+  notifications      Notification[]
+
+  @@index([processingState, createdAt])
+}
+
+model UserNotificationPreference {
+  id          Int      @id @default(autoincrement())
+  userId      Int      @unique
+  user        User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  emailOptOut Boolean  @default(false)
+  updatedAt   DateTime @updatedAt
+}
+
+model Notification {
+  id             Int                @id @default(autoincrement())
+  recipientId    Int
+  recipient      User               @relation(fields: [recipientId], references: [id], onDelete: Restrict)
+  eventId        Int
+  event          EventOutbox        @relation(fields: [eventId], references: [id], onDelete: Restrict)
+  dedupKey       String             // "event:<eventId>:recipient:<recipientId>"
+  title          String
+  message        String
+  read           Boolean            @default(false)
+  emailState     EmailDeliveryState @default(PENDING)
+  emailAttempts  Int                @default(0)
+  emailError     String?
+  claimedAt      DateTime?
+  createdAt      DateTime           @default(now())
+
+  @@unique([recipientId, dedupKey])
+  @@index([recipientId, createdAt])
+  @@index([recipientId, read])
+  @@index([emailState, claimedAt])
 }

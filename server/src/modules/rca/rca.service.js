@@ -326,7 +326,7 @@ export async function submitRCA(projectId, rcaId, { reviewerIds }, actorUserId, 
     });
 
     // Update RCA status to UNDER_REVIEW
-    return await tx.rCA.update({
+    const updated = await tx.rCA.update({
       where: { id: rcaId },
       data: { status: 'UNDER_REVIEW' },
       include: {
@@ -339,6 +339,24 @@ export async function submitRCA(projectId, rcaId, { reviewerIds }, actorUserId, 
         }
       }
     });
+
+    // Create EventOutbox row for RCA_SUBMITTED
+    await tx.eventOutbox.create({
+      data: {
+        eventType: 'RCA_SUBMITTED',
+        entityId: rcaId,
+        actorId: actorUserId,
+        metadata: {
+          rcaId,
+          rcaTitle: rca.title,
+          reviewRound: rca.reviewRound,
+          reviewerIds: reviewerIds,
+          actorId: actorUserId
+        }
+      }
+    });
+
+    return updated;
   });
 }
 

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../auth/context/AuthContext.jsx';
 import { LogOut, Folder, Plus, Activity, Archive, Server, Database } from 'lucide-react';
 import CreateProjectModal from './CreateProjectModal.jsx';
+import NavbarNotificationBell from './NavbarNotificationBell.jsx';
 
 export default function MyProjects({ onSelectProject }) {
   const { user, logout } = useAuth();
@@ -71,7 +72,8 @@ export default function MyProjects({ onSelectProject }) {
           </p>
         </div>
 
-        <div style={{ display: 'flex', gap: '12px' }}>
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+          <NavbarNotificationBell />
           <button
             onClick={() => setShowModal(true)}
             className="btn-primary"

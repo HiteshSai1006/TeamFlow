@@ -10,6 +10,7 @@ import commentRouter from './modules/comment/comment.routes.js';
 import attachmentRouter from './modules/attachment/attachment.routes.js';
 import rcaRouter from './modules/rca/rca.routes.js';
 import reviewRouter from './modules/review/review.routes.js';
+import notificationRouter from './modules/notification/notification.routes.js';
 
 const app = express();
 
@@ -40,6 +41,7 @@ app.use('/api/projects/:projectId/tasks/:taskId/comments', commentRouter);
 app.use('/api/projects/:projectId/tasks/:taskId/attachments', attachmentRouter);
 app.use('/api/projects/:projectId/rcas', rcaRouter);
 app.use('/api/reviews', reviewRouter);
+app.use('/api/notifications', notificationRouter);
 
 // Centralized Error Handling Middleware (must be registered last)
 app.use(errorHandler);
