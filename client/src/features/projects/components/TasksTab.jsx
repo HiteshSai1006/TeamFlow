@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, CheckSquare, Calendar, User, Eye, History, ShieldAlert, AlertCircle } from 'lucide-react';
+import { Plus, CheckSquare, Calendar, User, Eye, History, AlertTriangle, X } from 'lucide-react';
 
 export default function TasksTab({ project, role }) {
   const [tasks, setTasks] = useState([]);
@@ -37,6 +37,11 @@ export default function TasksTab({ project, role }) {
   const [editDueDate, setEditDueDate] = useState('');
   const [editError, setEditError] = useState(null);
   const [updating, setUpdating] = useState(false);
+
+  // Dependencies State
+  const [selectedPrereqId, setSelectedPrereqId] = useState('');
+  const [selectedDownstreamId, setSelectedDownstreamId] = useState('');
+  const [depError, setDepError] = useState(null);
 
   const isArchived = project.status === 'ARCHIVED';
   const isManager = role === 'MANAGER';
@@ -134,25 +139,32 @@ export default function TasksTab({ project, role }) {
   };
 
   const selectTaskForDetails = async (task) => {
-    setSelectedTask(task);
-    setEditTitle(task.title);
-    setEditDesc(task.description || '');
-    setEditPriority(task.priority);
-    setEditStatus(task.status);
-    setEditAssigneeId(task.assigneeId ? task.assigneeId.toString() : '');
-    setEditDueDate(task.dueDate ? new Date(task.dueDate).toISOString().split('T')[0] : '');
-    setEditError(null);
+    // Reset dependency selectors and warnings
+    setSelectedPrereqId('');
+    setSelectedDownstreamId('');
+    setDepError(null);
 
-    // Fetch complete details and logs
+    // Fetch complete details, relations, logs, and warnings
     setLoadingLogs(true);
     try {
       const res = await fetch(`/api/projects/${project.id}/tasks/${task.id}`, { credentials: 'include' });
       if (res.ok) {
         const data = await res.json();
-        setSelectedTaskLogs(data.task.activityLogs || []);
+        const fullTask = data.task;
+        setSelectedTask(fullTask);
+        setEditTitle(fullTask.title);
+        setEditDesc(fullTask.description || '');
+        setEditPriority(fullTask.priority);
+        setEditStatus(fullTask.status);
+        setEditAssigneeId(fullTask.assigneeId ? fullTask.assigneeId.toString() : '');
+        setEditDueDate(fullTask.dueDate ? new Date(fullTask.dueDate).toISOString().split('T')[0] : '');
+        setSelectedTaskLogs(fullTask.activityLogs || []);
+      } else {
+        throw new Error('Failed to load task details.');
       }
     } catch (err) {
-      console.error('Failed to load activity logs:', err);
+      console.error(err);
+      alert('Error fetching task details.');
     } finally {
       setLoadingLogs(false);
     }
@@ -164,24 +176,16 @@ export default function TasksTab({ project, role }) {
     setUpdating(true);
 
     try {
-      const payload = {};
+      const payload = {
+        title: editTitle,
+        description: editDesc,
+        priority: editPriority,
+        status: editStatus,
+        dueDate: editDueDate || null
+      };
       
-      // Determine what to send based on role capabilities
       if (isManager) {
-        payload.title = editTitle;
-        payload.description = editDesc;
-        payload.priority = editPriority;
         payload.assigneeId = editAssigneeId ? parseInt(editAssigneeId, 10) : null;
-        payload.status = editStatus;
-        payload.dueDate = editDueDate || null;
-      } else if (isMember) {
-        // Members can edit status if assigned, or fields if they created/are assigned to it
-        const isAssignee = selectedTask.assigneeId === selectedTask.createdById; // Let's check from current logged user, wait, we can just send whatever we want and let the API validate it
-        payload.title = editTitle;
-        payload.description = editDesc;
-        payload.priority = editPriority;
-        payload.status = editStatus;
-        payload.dueDate = editDueDate || null;
       }
 
       const res = await fetch(`/api/projects/${project.id}/tasks/${selectedTask.id}`, {
@@ -196,10 +200,10 @@ export default function TasksTab({ project, role }) {
         throw new Error(data.message || 'Failed to update task.');
       }
 
-      // Update tasks array
+      // Update task in main lists
       setTasks((prev) => prev.map((t) => (t.id === selectedTask.id ? data.task : t)));
       
-      // Reload logs and refresh selected task details
+      // Reload details
       await selectTaskForDetails(data.task);
       alert('Task updated successfully!');
     } catch (err) {
@@ -209,13 +213,73 @@ export default function TasksTab({ project, role }) {
     }
   };
 
-  // Only managers and members (not reviewers) can mutate
+  // Add a Dependency (Relation)
+  const handleAddDependency = async (direction, taskId) => {
+    setDepError(null);
+    if (!taskId) return;
+
+    let sourceId, targetId;
+    if (direction === 'PREREQUISITE') {
+      // taskId blocks selectedTask.id
+      sourceId = parseInt(taskId, 10);
+      targetId = selectedTask.id;
+    } else {
+      // selectedTask.id blocks taskId
+      sourceId = selectedTask.id;
+      targetId = parseInt(taskId, 10);
+    }
+
+    try {
+      const res = await fetch(`/api/projects/${project.id}/tasks/${sourceId}/relations`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targetTaskId: targetId }),
+        credentials: 'include'
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.message || 'Failed to add dependency.');
+      }
+
+      // Refresh task details to load updated relations & warnings
+      await selectTaskForDetails(selectedTask);
+      fetchTasks(); // refresh task list warnings
+      
+      if (direction === 'PREREQUISITE') setSelectedPrereqId('');
+      else setSelectedDownstreamId('');
+    } catch (err) {
+      setDepError(err.message);
+    }
+  };
+
+  // Remove a Dependency (Relation)
+  const handleRemoveDependency = async (targetTaskId, relationId) => {
+    setDepError(null);
+    try {
+      const res = await fetch(`/api/projects/${project.id}/tasks/${targetTaskId}/relations/${relationId}`, {
+        method: 'DELETE',
+        credentials: 'include'
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.message || 'Failed to remove dependency.');
+      }
+
+      await selectTaskForDetails(selectedTask);
+      fetchTasks();
+    } catch (err) {
+      setDepError(err.message);
+    }
+  };
+
   const canMutate = !isReviewer && !isArchived;
 
   // Filter assignable members (exclude reviewers)
   const assignableMembers = members.filter((m) => m.role !== 'REVIEWER');
 
-  // Allowed transitions logic helper for UI dropdown
+  // Allowed transitions dropdown options helper
   const getAllowedStatusOptions = (currentStatus) => {
     const allowedMap = {
       TODO: ['TODO', 'IN_PROGRESS'],
@@ -226,20 +290,20 @@ export default function TasksTab({ project, role }) {
     return allowedMap[currentStatus] || ['TODO', 'IN_PROGRESS', 'BLOCKED', 'DONE'];
   };
 
-  // Format activity logs text
+  // Formatter for logs
   const formatLogText = (log) => {
     const actorName = log.actor?.name || 'Unknown User';
     const dateStr = new Date(log.createdAt).toLocaleString();
     
     switch (log.eventType) {
       case 'TASK_CREATE':
-        return `[${dateStr}] Task was created by ${actorName} with initial title "${log.metadata.title}".`;
+        return `[${dateStr}] Task created by ${actorName} with initial title "${log.metadata.title}".`;
       case 'TASK_UPDATE':
         const updates = [];
         if (log.metadata.title) updates.push(`title changed to "${log.metadata.title.after}"`);
         if (log.metadata.description) updates.push(`description changed`);
         if (log.metadata.priority) updates.push(`priority changed to ${log.metadata.priority.after}`);
-        return `[${dateStr}] General settings updated by ${actorName}: ${updates.join(', ')}.`;
+        return `[${dateStr}] Task settings updated by ${actorName}: ${updates.join(', ')}.`;
       case 'TASK_ASSIGN':
         const assigneeEmail = log.metadata.after?.email || 'Unassigned';
         return `[${dateStr}] Task assignment changed by ${actorName} to ${assigneeEmail}.`;
@@ -248,13 +312,20 @@ export default function TasksTab({ project, role }) {
       case 'TASK_DUE_DATE_CHANGE':
         const newDue = log.metadata.after ? new Date(log.metadata.after).toLocaleDateString() : 'None';
         return `[${dateStr}] Due date updated by ${actorName} to ${newDue}.`;
+      case 'TASK_DEPENDENCY_ADDED':
+        return `[${dateStr}] Dependency added by ${actorName}: "${log.metadata.sourceTaskTitle}" blocks "${log.metadata.targetTaskTitle}".`;
+      case 'TASK_DEPENDENCY_REMOVED':
+        return `[${dateStr}] Dependency removed by ${actorName}: "${log.metadata.sourceTaskTitle}" no longer blocks "${log.metadata.targetTaskTitle}".`;
       default:
-        return `[${dateStr}] Operations update logged by ${actorName}.`;
+        return `[${dateStr}] Activity logged by ${actorName}.`;
     }
   };
 
+  // Helper to determine if a task has active blockers in the list
+  const hasBlockers = (task) => task.warnings?.some((w) => w.code === 'UNFINISHED_BLOCKERS');
+
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: selectedTask ? '1fr 450px' : '1fr', gap: '30px', alignItems: 'start' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: selectedTask ? '1fr 480px' : '1fr', gap: '30px', alignItems: 'start' }}>
       
       {/* Task List Panel */}
       <div className="glass-panel" style={{ padding: '24px' }}>
@@ -273,7 +344,6 @@ export default function TasksTab({ project, role }) {
           
           {/* Filters */}
           <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
-            {/* Status Filter */}
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
@@ -294,7 +364,6 @@ export default function TasksTab({ project, role }) {
               <option value="DONE">DONE</option>
             </select>
 
-            {/* Priority Filter */}
             <select
               value={filterPriority}
               onChange={(e) => setFilterPriority(e.target.value)}
@@ -315,7 +384,6 @@ export default function TasksTab({ project, role }) {
               <option value="CRITICAL">CRITICAL</option>
             </select>
 
-            {/* Assignee Filter */}
             <select
               value={filterAssignee}
               onChange={(e) => setFilterAssignee(e.target.value)}
@@ -361,6 +429,7 @@ export default function TasksTab({ project, role }) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             {tasks.map((t) => {
               const isSelected = selectedTask?.id === t.id;
+              const blocked = hasBlockers(t);
               return (
                 <div
                   key={t.id}
@@ -388,17 +457,34 @@ export default function TasksTab({ project, role }) {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <CheckSquare size={14} style={{ color: 'var(--color-accent)' }} />
                       <span style={{ fontSize: '14px', fontWeight: 600 }}>{t.title}</span>
+                      
+                      {/* Blocked Alert Icon in List */}
+                      {blocked && (
+                        <span style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '3px',
+                          color: '#f59e0b',
+                          background: 'rgba(245, 158, 11, 0.08)',
+                          border: '1px solid rgba(245, 158, 11, 0.15)',
+                          borderRadius: '4px',
+                          padding: '1px 5px',
+                          fontSize: '10px',
+                          fontWeight: 600
+                        }}>
+                          <AlertTriangle size={10} />
+                          blocked
+                        </span>
+                      )}
                     </div>
 
                     <div style={{ display: 'flex', gap: '12px', alignItems: 'center', fontSize: '11px', color: 'var(--text-secondary)' }}>
-                      {/* Priority Badge */}
                       <span style={{
                         color: t.priority === 'CRITICAL' ? 'var(--color-danger)' : t.priority === 'HIGH' ? '#f59e0b' : t.priority === 'MEDIUM' ? '#3b82f6' : '#9ca3af'
                       }}>
                         {t.priority}
                       </span>
                       <span>•</span>
-                      {/* Assignee */}
                       <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                         <User size={10} />
                         {t.assignee?.name || 'Unassigned'}
@@ -415,7 +501,6 @@ export default function TasksTab({ project, role }) {
                     </div>
                   </div>
 
-                  {/* Status Badge */}
                   <span style={{
                     fontSize: '11px',
                     fontWeight: 700,
@@ -436,11 +521,19 @@ export default function TasksTab({ project, role }) {
 
       </div>
 
-      {/* Task Details Panel / Edit View (Manager & Member context sensitive) */}
+      {/* Task Details Panel */}
       {selectedTask && (
-        <div className="glass-panel" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px', position: 'sticky', top: '20px' }}>
+        <div className="glass-panel" style={{
+          padding: '24px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '20px',
+          position: 'sticky',
+          top: '20px',
+          maxHeight: '90vh',
+          overflowY: 'auto'
+        }}>
           
-          {/* Header */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <h3 style={{ fontSize: '16px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Eye size={18} style={{ color: 'var(--color-accent)' }} />
@@ -454,16 +547,47 @@ export default function TasksTab({ project, role }) {
             </button>
           </div>
 
+          {/* Structured Warning Banner */}
+          {hasBlockers(selectedTask) && (
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '6px',
+              background: 'rgba(245, 158, 11, 0.08)',
+              border: '1px solid rgba(245, 158, 11, 0.2)',
+              borderRadius: '8px',
+              padding: '12px 16px',
+              color: '#f59e0b',
+              fontSize: '13px'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600 }}>
+                <AlertTriangle size={16} />
+                <span>Unresolved Prerequisites (UNFINISHED_BLOCKERS)</span>
+              </div>
+              <p style={{ margin: 0, fontSize: '12px', opacity: 0.85 }}>
+                This task depends on the following unfinished tasks:
+              </p>
+              <ul style={{ margin: '5px 0 0 16px', padding: 0, fontSize: '12px', opacity: 0.9 }}>
+                {selectedTask.warnings
+                  .find((w) => w.code === 'UNFINISHED_BLOCKERS')
+                  ?.details.map((d) => (
+                    <li key={d.id}>
+                      <strong>{d.title}</strong> ({d.status.replace('_', ' ')})
+                    </li>
+                  ))}
+              </ul>
+            </div>
+          )}
+
           {/* Form */}
           <form onSubmit={handleUpdateTask} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             {editError && (
               <div style={{ color: 'var(--color-danger)', fontSize: '12px', display: 'flex', gap: '6px', alignItems: 'center' }}>
-                <AlertCircle size={14} />
+                <AlertTriangle size={14} />
                 <span>{editError}</span>
               </div>
             )}
 
-            {/* Title */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
               <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Title</label>
               <input
@@ -483,7 +607,6 @@ export default function TasksTab({ project, role }) {
               />
             </div>
 
-            {/* Description */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
               <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Description</label>
               <textarea
@@ -504,10 +627,7 @@ export default function TasksTab({ project, role }) {
               />
             </div>
 
-            {/* Priority & Status */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
-              
-              {/* Priority */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                 <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Priority</label>
                 <select
@@ -531,7 +651,6 @@ export default function TasksTab({ project, role }) {
                 </select>
               </div>
 
-              {/* Status (Transition Scoped) */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                 <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Status</label>
                 <select
@@ -553,13 +672,9 @@ export default function TasksTab({ project, role }) {
                   ))}
                 </select>
               </div>
-
             </div>
 
-            {/* Assignee & Due Date */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
-              
-              {/* Assignee (Managers Only can reassign) */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                 <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Assignee</label>
                 <select
@@ -583,7 +698,6 @@ export default function TasksTab({ project, role }) {
                 </select>
               </div>
 
-              {/* Due Date */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                 <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Due Date</label>
                 <input
@@ -602,10 +716,8 @@ export default function TasksTab({ project, role }) {
                   }}
                 />
               </div>
-
             </div>
 
-            {/* Save Button */}
             {canMutate && (
               <button
                 type="submit"
@@ -618,6 +730,169 @@ export default function TasksTab({ project, role }) {
             )}
 
           </form>
+
+          {/* Dependencies Relations Section */}
+          <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '20px' }}>
+            <h4 style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '15px' }}>
+              Prerequisites & Downstream Dependencies
+            </h4>
+
+            {depError && (
+              <div style={{ color: 'var(--color-danger)', fontSize: '12px', marginBottom: '10px', display: 'flex', gap: '6px', alignItems: 'center' }}>
+                <AlertTriangle size={12} />
+                <span>{depError}</span>
+              </div>
+            )}
+
+            {/* List and add prerequisite */}
+            <div style={{ marginBottom: '20px' }}>
+              <h5 style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '8px' }}>
+                Blocked By (Prerequisites)
+              </h5>
+              
+              {/* List */}
+              {selectedTask.incomingRelations?.length === 0 ? (
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '10px' }}>No prerequisites defined.</div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '10px' }}>
+                  {selectedTask.incomingRelations?.map((rel) => (
+                    <div key={rel.id} style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      background: 'rgba(255,255,255,0.02)',
+                      padding: '6px 10px',
+                      borderRadius: '6px',
+                      border: '1px solid rgba(255,255,255,0.02)'
+                    }}>
+                      <span style={{ fontSize: '12px', color: rel.sourceTask.status !== 'DONE' ? '#f59e0b' : 'var(--text-muted)' }}>
+                        {rel.sourceTask.title} ({rel.sourceTask.status.replace('_', ' ')})
+                      </span>
+                      {canMutate && (
+                        <button
+                          onClick={() => handleRemoveDependency(selectedTask.id, rel.id)}
+                          style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                          title="Delete relation"
+                        >
+                          <X size={12} />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Add form */}
+              {canMutate && (
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <select
+                    value={selectedPrereqId}
+                    onChange={(e) => setSelectedPrereqId(e.target.value)}
+                    style={{
+                      flex: 1,
+                      padding: '6px',
+                      background: 'rgba(255,255,255,0.02)',
+                      border: '1px solid var(--border-color)',
+                      borderRadius: '6px',
+                      color: 'var(--text-primary)',
+                      fontSize: '12px',
+                      outline: 'none'
+                    }}
+                  >
+                    <option value="">Select prerequisite task...</option>
+                    {tasks
+                      .filter((t) => t.id !== selectedTask.id && !selectedTask.incomingRelations?.some((r) => r.sourceTaskId === t.id))
+                      .map((t) => (
+                        <option key={t.id} value={t.id}>{t.title}</option>
+                      ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => handleAddDependency('PREREQUISITE', selectedPrereqId)}
+                    className="btn-primary"
+                    style={{ fontSize: '11px', padding: '6px 12px', borderRadius: '6px' }}
+                  >
+                    Add
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* List and add downstream */}
+            <div>
+              <h5 style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '8px' }}>
+                Blocks (Downstream)
+              </h5>
+
+              {/* List */}
+              {selectedTask.outgoingRelations?.length === 0 ? (
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '10px' }}>No downstream tasks.</div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '10px' }}>
+                  {selectedTask.outgoingRelations?.map((rel) => (
+                    <div key={rel.id} style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      background: 'rgba(255,255,255,0.02)',
+                      padding: '6px 10px',
+                      borderRadius: '6px',
+                      border: '1px solid rgba(255,255,255,0.02)'
+                    }}>
+                      <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                        {rel.targetTask.title} ({rel.targetTask.status.replace('_', ' ')})
+                      </span>
+                      {canMutate && (
+                        <button
+                          onClick={() => handleRemoveDependency(rel.targetTaskId, rel.id)}
+                          style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                          title="Delete relation"
+                        >
+                          <X size={12} />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Add form */}
+              {canMutate && (
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <select
+                    value={selectedDownstreamId}
+                    onChange={(e) => setSelectedDownstreamId(e.target.value)}
+                    style={{
+                      flex: 1,
+                      padding: '6px',
+                      background: 'rgba(255,255,255,0.02)',
+                      border: '1px solid var(--border-color)',
+                      borderRadius: '6px',
+                      color: 'var(--text-primary)',
+                      fontSize: '12px',
+                      outline: 'none'
+                    }}
+                  >
+                    <option value="">Select dependent task...</option>
+                    {tasks
+                      .filter((t) => t.id !== selectedTask.id && !selectedTask.outgoingRelations?.some((r) => r.targetTaskId === t.id))
+                      .map((t) => (
+                        <option key={t.id} value={t.id}>{t.title}</option>
+                      ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => handleAddDependency('DOWNSTREAM', selectedDownstreamId)}
+                    className="btn-primary"
+                    style={{ fontSize: '11px', padding: '6px 12px', borderRadius: '6px' }}
+                  >
+                    Add
+                  </button>
+                </div>
+              )}
+            </div>
+
+          </div>
 
           {/* Activity Logs (Audit Trail) */}
           <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '20px' }}>
@@ -788,7 +1063,6 @@ export default function TasksTab({ project, role }) {
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
-                {/* Assignee dropdown - hidden for MEMBERS */}
                 {isManager ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                     <label style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Assignee</label>

@@ -257,3 +257,10 @@ h1, h2, h3, h4 {
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.2);
 }
+
+/* Premium Select Options Color Correction */
+select option {
+  background-color: #161121; /* Matches --bg-card dark obsidian color */
+  color: #f3f1f6; /* Matches --text-primary light text color */
+}
+

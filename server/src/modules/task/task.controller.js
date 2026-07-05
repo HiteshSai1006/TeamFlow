@@ -3,10 +3,10 @@ import * as taskService from './task.service.js';
 export async function create(req, res, next) {
   try {
     const projectId = parseInt(req.params.projectId, 10);
-    const task = await taskService.createTask(projectId, req.body, req.user.id);
+    const result = await taskService.createTask(projectId, req.body, req.user.id);
     return res.status(201).json({
       success: true,
-      task
+      task: result
     });
   } catch (error) {
     next(error);
@@ -48,6 +48,39 @@ export async function update(req, res, next) {
     return res.status(200).json({
       success: true,
       task
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function addRelation(req, res, next) {
+  try {
+    const projectId = parseInt(req.params.projectId, 10);
+    const sourceTaskId = parseInt(req.params.taskId, 10);
+    const { targetTaskId } = req.body;
+    
+    const result = await taskService.addDependency(projectId, sourceTaskId, parseInt(targetTaskId, 10), req.user.id);
+    return res.status(200).json({
+      success: true,
+      relation: result.relation,
+      warnings: result.warnings
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function removeRelation(req, res, next) {
+  try {
+    const projectId = parseInt(req.params.projectId, 10);
+    const targetTaskId = parseInt(req.params.taskId, 10);
+    const relationId = parseInt(req.params.relationId, 10);
+    
+    const result = await taskService.removeDependency(projectId, targetTaskId, relationId, req.user.id);
+    return res.status(200).json({
+      success: true,
+      warnings: result.warnings
     });
   } catch (error) {
     next(error);

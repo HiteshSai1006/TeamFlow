@@ -85,21 +85,23 @@ enum TaskPriority {
 }
 
 model Task {
-  id            Int           @id @default(autoincrement())
-  projectId     Int
-  project       Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  title         String
-  description   String?
-  status        TaskStatus    @default(TODO)
-  priority      TaskPriority  @default(MEDIUM)
-  assigneeId    Int?
-  assignee      User?         @relation("AssignedTasks", fields: [assigneeId], references: [id])
-  dueDate       DateTime?
-  createdById   Int
-  createdBy     User          @relation("CreatedTasks", fields: [createdById], references: [id])
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-  activityLogs  ActivityLog[]
+  id                Int            @id @default(autoincrement())
+  projectId         Int
+  project           Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title             String
+  description       String?
+  status            TaskStatus     @default(TODO)
+  priority          TaskPriority   @default(MEDIUM)
+  assigneeId        Int?
+  assignee          User?          @relation("AssignedTasks", fields: [assigneeId], references: [id])
+  dueDate           DateTime?
+  createdById       Int
+  createdBy         User           @relation("CreatedTasks", fields: [createdById], references: [id])
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  activityLogs      ActivityLog[]
+  outgoingRelations TaskRelation[] @relation("SourceRelations")
+  incomingRelations TaskRelation[] @relation("TargetRelations")
 }
 
 enum ActivityEventType {
@@ -108,6 +110,8 @@ enum ActivityEventType {
   TASK_ASSIGN
   TASK_STATUS_CHANGE
   TASK_DUE_DATE_CHANGE
+  TASK_DEPENDENCY_ADDED
+  TASK_DEPENDENCY_REMOVED
 }
 
 model ActivityLog {
@@ -121,4 +125,19 @@ model ActivityLog {
   eventType   ActivityEventType
   metadata    Json
   createdAt   DateTime          @default(now())
+}
+
+enum RelationType {
+  BLOCKS
+}
+
+model TaskRelation {
+  id           Int          @id @default(autoincrement())
+  sourceTaskId Int
+  sourceTask   Task         @relation("SourceRelations", fields: [sourceTaskId], references: [id], onDelete: Cascade)
+  targetTaskId Int
+  targetTask   Task         @relation("TargetRelations", fields: [targetTaskId], references: [id], onDelete: Cascade)
+  type         RelationType @default(BLOCKS)
+
+  @@unique([sourceTaskId, targetTaskId])
 }

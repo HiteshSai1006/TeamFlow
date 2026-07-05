@@ -13,10 +13,66 @@ function validateStatusTransition(from, to) {
 }
 
 /**
+ * Returns structured warnings if a task has unresolved prerequisites.
+ */
+export async function getTaskWarnings(taskId, client = prisma) {
+  const incoming = await client.taskRelation.findMany({
+    where: { targetTaskId: taskId },
+    include: {
+      sourceTask: {
+        select: { id: true, title: true, status: true, priority: true }
+      }
+    }
+  });
+
+  const unfinished = incoming
+    .filter((r) => r.sourceTask.status !== 'DONE')
+    .map((r) => r.sourceTask);
+
+  if (unfinished.length > 0) {
+    return [
+      {
+        code: 'UNFINISHED_BLOCKERS',
+        message: 'This task is blocked by unfinished tasks.',
+        details: unfinished
+      }
+    ];
+  }
+  return [];
+}
+
+/**
+ * BFS cycle checker: starting from target, walks outgoing relations. If it reaches source, cycle is detected.
+ */
+async function detectCycle(sourceId, targetId, tx) {
+  const visited = new Set();
+  const queue = [targetId];
+
+  while (queue.length > 0) {
+    const current = queue.shift();
+    if (current === sourceId) {
+      return true; // Cycle!
+    }
+
+    if (!visited.has(current)) {
+      visited.add(current);
+      const outgoing = await tx.taskRelation.findMany({
+        where: { sourceTaskId: current }
+      });
+      for (const rel of outgoing) {
+        if (!visited.has(rel.targetTaskId)) {
+          queue.push(rel.targetTaskId);
+        }
+      }
+    }
+  }
+  return false;
+}
+
+/**
  * Creates a new Task and logs the event atomically in a transaction.
  */
 export async function createTask(projectId, taskData, createdById) {
-  // Fetch project status
   const project = await prisma.project.findUnique({
     where: { id: projectId }
   });
@@ -33,7 +89,6 @@ export async function createTask(projectId, taskData, createdById) {
     throw error;
   }
 
-  // Fetch creator role
   const creatorMember = await prisma.projectMember.findUnique({
     where: { projectId_userId: { projectId, userId: createdById } }
   });
@@ -52,12 +107,10 @@ export async function createTask(projectId, taskData, createdById) {
 
   const { title, description, priority, status, assigneeId, dueDate } = taskData;
 
-  // Assignee validations
   let parsedAssigneeId = null;
   if (assigneeId !== undefined && assigneeId !== null) {
     parsedAssigneeId = parseInt(assigneeId, 10);
     
-    // Member check
     const assigneeMember = await prisma.projectMember.findUnique({
       where: { projectId_userId: { projectId, userId: parsedAssigneeId } }
     });
@@ -74,7 +127,6 @@ export async function createTask(projectId, taskData, createdById) {
       throw error;
     }
 
-    // Role-based creation constraint: MEMBERS cannot assign tasks
     if (creatorMember.role === 'MEMBER') {
       const error = new Error('Access denied. Only MANAGER can assign tasks.');
       error.statusCode = 403;
@@ -84,9 +136,8 @@ export async function createTask(projectId, taskData, createdById) {
 
   const parsedDueDate = dueDate ? new Date(dueDate) : null;
 
-  // Execute transaction
-  return await prisma.$transaction(async (tx) => {
-    const task = await tx.task.create({
+  const task = await prisma.$transaction(async (tx) => {
+    const createdTask = await tx.task.create({
       data: {
         projectId,
         title: title.trim(),
@@ -104,30 +155,32 @@ export async function createTask(projectId, taskData, createdById) {
       }
     });
 
-    // Create creation log with full context
     await tx.activityLog.create({
       data: {
         projectId,
-        taskId: task.id,
+        taskId: createdTask.id,
         actorId: createdById,
         eventType: 'TASK_CREATE',
         metadata: {
-          taskId: task.id,
-          title: task.title,
-          status: task.status,
-          priority: task.priority,
-          assigneeId: task.assigneeId,
-          dueDate: task.dueDate ? task.dueDate.toISOString() : null
+          taskId: createdTask.id,
+          title: createdTask.title,
+          status: createdTask.status,
+          priority: createdTask.priority,
+          assigneeId: createdTask.assigneeId,
+          dueDate: createdTask.dueDate ? createdTask.dueDate.toISOString() : null
         }
       }
     });
 
-    return task;
+    return createdTask;
   });
+
+  const warnings = await getTaskWarnings(task.id);
+  return { ...task, warnings };
 }
 
 /**
- * Lists tasks for a project with optional filters.
+ * Lists tasks for a project with warnings mapped.
  */
 export async function getTasksForProject(projectId, filters = {}) {
   const where = { projectId };
@@ -142,7 +195,7 @@ export async function getTasksForProject(projectId, filters = {}) {
     where.assigneeId = parseInt(filters.assigneeId, 10);
   }
 
-  return await prisma.task.findMany({
+  const tasks = await prisma.task.findMany({
     where,
     include: {
       assignee: {
@@ -151,10 +204,17 @@ export async function getTasksForProject(projectId, filters = {}) {
     },
     orderBy: { createdAt: 'desc' }
   });
+
+  return await Promise.all(
+    tasks.map(async (t) => {
+      const warnings = await getTaskWarnings(t.id);
+      return { ...t, warnings };
+    })
+  );
 }
 
 /**
- * Gets a specific task detail.
+ * Gets a specific task detail, including relations and warnings.
  */
 export async function getTaskById(projectId, taskId) {
   const task = await prisma.task.findUnique({
@@ -170,6 +230,20 @@ export async function getTaskById(projectId, taskId) {
           }
         },
         orderBy: { createdAt: 'desc' }
+      },
+      incomingRelations: {
+        include: {
+          sourceTask: {
+            select: { id: true, title: true, status: true, priority: true }
+          }
+        }
+      },
+      outgoingRelations: {
+        include: {
+          targetTask: {
+            select: { id: true, title: true, status: true, priority: true }
+          }
+        }
       }
     }
   });
@@ -180,14 +254,14 @@ export async function getTaskById(projectId, taskId) {
     throw error;
   }
 
-  return task;
+  const warnings = await getTaskWarnings(task.id);
+  return { ...task, warnings };
 }
 
 /**
  * Updates task and writes split categories logs inside a single transaction.
  */
 export async function updateTask(projectId, taskId, updateData, actorUserId) {
-  // Fetch project status
   const project = await prisma.project.findUnique({
     where: { id: projectId }
   });
@@ -204,7 +278,6 @@ export async function updateTask(projectId, taskId, updateData, actorUserId) {
     throw error;
   }
 
-  // Fetch task
   const task = await prisma.task.findUnique({
     where: { id: taskId }
   });
@@ -215,7 +288,6 @@ export async function updateTask(projectId, taskId, updateData, actorUserId) {
     throw error;
   }
 
-  // Fetch actor role
   const actorMember = await prisma.projectMember.findUnique({
     where: { projectId_userId: { projectId, userId: actorUserId } }
   });
@@ -232,7 +304,6 @@ export async function updateTask(projectId, taskId, updateData, actorUserId) {
     throw error;
   }
 
-  // Enforce MEMBER limits
   if (actorMember.role === 'MEMBER') {
     const hasMetadataUpdate = updateData.title !== undefined ||
       updateData.description !== undefined ||
@@ -262,7 +333,6 @@ export async function updateTask(projectId, taskId, updateData, actorUserId) {
     }
   }
 
-  // Status transition check
   if (updateData.status !== undefined && updateData.status !== task.status) {
     if (!validateStatusTransition(task.status, updateData.status)) {
       const error = new Error(`Invalid status transition from ${task.status} to ${updateData.status}.`);
@@ -271,7 +341,6 @@ export async function updateTask(projectId, taskId, updateData, actorUserId) {
     }
   }
 
-  // Assignee validation
   let parsedAssigneeId = undefined;
   if (updateData.assigneeId !== undefined) {
     if (updateData.assigneeId === null) {
@@ -299,7 +368,6 @@ export async function updateTask(projectId, taskId, updateData, actorUserId) {
 
   const parsedDueDate = updateData.dueDate !== undefined ? (updateData.dueDate ? new Date(updateData.dueDate) : null) : undefined;
 
-  // Determine what has changed to prevent no-op logs
   const changes = {};
   if (updateData.title !== undefined && updateData.title.trim() !== task.title) {
     changes.title = { before: task.title, after: updateData.title.trim() };
@@ -320,18 +388,17 @@ export async function updateTask(projectId, taskId, updateData, actorUserId) {
     changes.dueDate = { before: task.dueDate ? task.dueDate.toISOString() : null, after: parsedDueDate ? parsedDueDate.toISOString() : null };
   }
 
-  // If there are zero changes, return the task immediately (no-op)
   if (Object.keys(changes).length === 0) {
-    return await prisma.task.findUnique({
+    const existingTask = await prisma.task.findUnique({
       where: { id: taskId },
       include: { assignee: { select: { id: true, name: true, email: true } } }
     });
+    const warnings = await getTaskWarnings(existingTask.id);
+    return { ...existingTask, warnings };
   }
 
-  // Execute database transaction
-  return await prisma.$transaction(async (tx) => {
-    // Apply task update
-    const updatedTask = await tx.task.update({
+  const updatedTask = await prisma.$transaction(async (tx) => {
+    const t = await tx.task.update({
       where: { id: taskId },
       data: {
         title: updateData.title !== undefined ? updateData.title.trim() : undefined,
@@ -346,7 +413,6 @@ export async function updateTask(projectId, taskId, updateData, actorUserId) {
       }
     });
 
-    // Create logs for each category changed
     if (changes.title || changes.description || changes.priority) {
       const meta = {};
       if (changes.title) meta.title = changes.title;
@@ -412,6 +478,210 @@ export async function updateTask(projectId, taskId, updateData, actorUserId) {
       });
     }
 
-    return updatedTask;
+    return t;
+  });
+
+  const warnings = await getTaskWarnings(updatedTask.id);
+  return { ...updatedTask, warnings };
+}
+
+/**
+ * Creates a BLOCKS dependency relation: sourceTaskId BLOCKS targetTaskId.
+ * Acquired transaction-level advisory locks prevent race conditions.
+ */
+export async function addDependency(projectId, sourceTaskId, targetTaskId, actorUserId) {
+  const project = await prisma.project.findUnique({ where: { id: projectId } });
+  if (!project) {
+    const error = new Error('Project not found.');
+    error.statusCode = 404;
+    throw error;
+  }
+  if (project.status === 'ARCHIVED') {
+    const error = new Error('Cannot add dependency in an archived project.');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  if (sourceTaskId === targetTaskId) {
+    const error = new Error('A task cannot block itself.');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const targetTask = await prisma.task.findUnique({ where: { id: targetTaskId } });
+  if (!targetTask || targetTask.projectId !== projectId) {
+    const error = new Error('Target task not found.');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const sourceTask = await prisma.task.findUnique({ where: { id: sourceTaskId } });
+  if (!sourceTask || sourceTask.projectId !== projectId) {
+    const error = new Error('Source task not found.');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const actorMember = await prisma.projectMember.findUnique({
+    where: { projectId_userId: { projectId, userId: actorUserId } }
+  });
+  if (!actorMember) {
+    const error = new Error('Access denied. You are not a member of this project.');
+    error.statusCode = 403;
+    throw error;
+  }
+  if (actorMember.role === 'REVIEWER') {
+    const error = new Error('Access denied. REVIEWER cannot edit dependencies.');
+    error.statusCode = 403;
+    throw error;
+  }
+  if (actorMember.role === 'MEMBER') {
+    if (targetTask.createdById !== actorUserId && targetTask.assigneeId !== actorUserId) {
+      const error = new Error('Access denied. Members can only add dependencies if they can edit the target task.');
+      error.statusCode = 403;
+      throw error;
+    }
+  }
+
+  return await prisma.$transaction(async (tx) => {
+    // Acquire PostgreSQL transaction advisory lock scoped to dependency namespace and project
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(1001, CAST(${projectId} AS integer))`;
+
+    // Re-verify under locks
+    const tTask = await tx.task.findUnique({ where: { id: targetTaskId } });
+    const sTask = await tx.task.findUnique({ where: { id: sourceTaskId } });
+    if (!tTask || tTask.projectId !== projectId || !sTask || sTask.projectId !== projectId) {
+      const error = new Error('Tasks not found in this project.');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const existing = await tx.taskRelation.findFirst({
+      where: { sourceTaskId, targetTaskId }
+    });
+    if (existing) {
+      const error = new Error('This dependency relation already exists.');
+      error.statusCode = 409;
+      throw error;
+    }
+
+    const isCycle = await detectCycle(sourceTaskId, targetTaskId, tx);
+    if (isCycle) {
+      const error = new Error('Creating this relation would introduce a dependency cycle.');
+      error.statusCode = 409;
+      throw error;
+    }
+
+    const relation = await tx.taskRelation.create({
+      data: {
+        sourceTaskId,
+        targetTaskId,
+        type: 'BLOCKS'
+      }
+    });
+
+    await tx.activityLog.create({
+      data: {
+        projectId,
+        taskId: targetTaskId,
+        actorId: actorUserId,
+        eventType: 'TASK_DEPENDENCY_ADDED',
+        metadata: {
+          relationId: relation.id,
+          sourceTaskId,
+          sourceTaskTitle: sTask.title,
+          targetTaskId,
+          targetTaskTitle: tTask.title
+        }
+      }
+    });
+
+    const warnings = await getTaskWarnings(targetTaskId, tx);
+    return { relation, warnings };
+  });
+}
+
+/**
+ * Removes a BLOCKS dependency relation.
+ */
+export async function removeDependency(projectId, targetTaskId, relationId, actorUserId) {
+  const project = await prisma.project.findUnique({ where: { id: projectId } });
+  if (!project) {
+    const error = new Error('Project not found.');
+    error.statusCode = 404;
+    throw error;
+  }
+  if (project.status === 'ARCHIVED') {
+    const error = new Error('Cannot remove dependency in an archived project.');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const relation = await prisma.taskRelation.findUnique({
+    where: { id: relationId },
+    include: {
+      sourceTask: true,
+      targetTask: true
+    }
+  });
+
+  if (!relation) {
+    const error = new Error('Dependency relation not found.');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  if (relation.sourceTask.projectId !== projectId || relation.targetTask.projectId !== projectId) {
+    const error = new Error('Relation mismatch for this project.');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const actorMember = await prisma.projectMember.findUnique({
+    where: { projectId_userId: { projectId, userId: actorUserId } }
+  });
+  if (!actorMember) {
+    const error = new Error('Access denied. You are not a member of this project.');
+    error.statusCode = 403;
+    throw error;
+  }
+  if (actorMember.role === 'REVIEWER') {
+    const error = new Error('Access denied. REVIEWER cannot edit dependencies.');
+    error.statusCode = 403;
+    throw error;
+  }
+  if (actorMember.role === 'MEMBER') {
+    if (relation.targetTask.createdById !== actorUserId && relation.targetTask.assigneeId !== actorUserId) {
+      const error = new Error('Access denied. Members can only remove dependencies if they can edit the target task.');
+      error.statusCode = 403;
+      throw error;
+    }
+  }
+
+  return await prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(1001, CAST(${projectId} AS integer))`;
+
+    await tx.taskRelation.delete({
+      where: { id: relationId }
+    });
+
+    await tx.activityLog.create({
+      data: {
+        projectId,
+        taskId: relation.targetTaskId,
+        actorId: actorUserId,
+        eventType: 'TASK_DEPENDENCY_REMOVED',
+        metadata: {
+          relationId: relation.id,
+          sourceTaskId: relation.sourceTaskId,
+          sourceTaskTitle: relation.sourceTask.title,
+          targetTaskId: relation.targetTaskId,
+          targetTaskTitle: relation.targetTask.title
+        }
+      }
+    });
+
+    const warnings = await getTaskWarnings(relation.targetTaskId, tx);
+    return { success: true, warnings };
   });
 }
