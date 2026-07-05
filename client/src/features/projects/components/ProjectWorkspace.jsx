@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft, Folder, Users, Archive, LayoutGrid } from 'lucide-react';
+import { ChevronLeft, Folder, Users, Archive, LayoutGrid, CheckSquare } from 'lucide-react';
 import ProjectOverview from './ProjectOverview.jsx';
 import ProjectMembers from './ProjectMembers.jsx';
+import TasksTab from './TasksTab.jsx';
 
 export default function ProjectWorkspace({ projectId, onBack }) {
   const [project, setProject] = useState(null);
-  const [role, setRole] = useState('MEMBER'); // Manager, Member, Reviewer
+  const [role, setRole] = useState('MEMBER'); // MANAGER, MEMBER, REVIEWER
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [activeTab, setActiveTab] = useState('overview'); // overview, members
+  const [activeTab, setActiveTab] = useState('overview'); // overview, members, tasks
 
   const fetchProjectDetails = async () => {
     setLoading(true);
@@ -178,6 +179,26 @@ export default function ProjectWorkspace({ projectId, onBack }) {
         </button>
 
         <button
+          onClick={() => setActiveTab('tasks')}
+          style={{
+            padding: '12px 20px',
+            background: 'none',
+            border: 'none',
+            borderBottom: activeTab === 'tasks' ? '2px solid var(--color-accent)' : '2px solid transparent',
+            color: activeTab === 'tasks' ? 'var(--text-primary)' : 'var(--text-muted)',
+            cursor: 'pointer',
+            fontWeight: 600,
+            fontSize: '14px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}
+        >
+          <CheckSquare size={16} />
+          Tasks
+        </button>
+
+        <button
           onClick={() => setActiveTab('members')}
           style={{
             padding: '12px 20px',
@@ -206,6 +227,12 @@ export default function ProjectWorkspace({ projectId, onBack }) {
             role={role}
             onProjectUpdated={handleProjectUpdated}
             onArchiveToggle={handleArchiveToggle}
+          />
+        )}
+        {activeTab === 'tasks' && (
+          <TasksTab
+            project={project}
+            role={role}
           />
         )}
         {activeTab === 'members' && (

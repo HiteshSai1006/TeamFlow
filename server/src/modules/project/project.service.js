@@ -292,6 +292,23 @@ export async function removeProjectMember(projectId, memberId, actorUserId) {
     }
   }
 
+  // Unfinished tasks check: member cannot be removed if assigned to unfinished tasks
+  const unfinishedTasksCount = await prisma.task.count({
+    where: {
+      projectId,
+      assigneeId: targetMember.userId,
+      status: {
+        not: 'DONE'
+      }
+    }
+  });
+
+  if (unfinishedTasksCount > 0) {
+    const error = new Error('Cannot remove member who is assigned to unfinished tasks. Reassign or complete the tasks first.');
+    error.statusCode = 409;
+    throw error;
+  }
+
   return await prisma.projectMember.delete({
     where: { id: memberId }
   });

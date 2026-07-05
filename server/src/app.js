@@ -5,6 +5,7 @@ import { errorHandler } from './middleware/errorHandler.js';
 import healthRouter from './modules/health/health.router.js';
 import authRouter from './modules/auth/auth.routes.js';
 import projectRouter from './modules/project/project.routes.js';
+import taskRouter from './modules/task/task.routes.js';
 
 const app = express();
 
@@ -30,6 +31,7 @@ app.use((req, res, next) => {
 app.use('/api', healthRouter);
 app.use('/api/auth', authRouter);
 app.use('/api/projects', projectRouter);
+app.use('/api/projects/:projectId/tasks', taskRouter);
 
 // Centralized Error Handling Middleware (must be registered last)
 app.use(errorHandler);
