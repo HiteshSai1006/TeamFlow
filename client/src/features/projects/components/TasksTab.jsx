@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, CheckSquare, Calendar, User, Eye, History, AlertTriangle, X } from 'lucide-react';
+import { Plus, CheckSquare, Calendar, User, Eye, History, AlertTriangle, X, MessageSquare } from 'lucide-react';
 
 export default function TasksTab({ project, role }) {
   const [tasks, setTasks] = useState([]);
@@ -43,6 +43,15 @@ export default function TasksTab({ project, role }) {
   const [selectedDownstreamId, setSelectedDownstreamId] = useState('');
   const [depError, setDepError] = useState(null);
 
+  // Comments State
+  const [comments, setComments] = useState([]);
+  const [loadingComments, setLoadingComments] = useState(false);
+  const [commentError, setCommentError] = useState(null);
+  const [newCommentText, setNewCommentText] = useState('');
+  const [editingCommentId, setEditingCommentId] = useState(null);
+  const [editingCommentText, setEditingCommentText] = useState('');
+  const [currentUser, setCurrentUser] = useState(null);
+
   const isArchived = project.status === 'ARCHIVED';
   const isManager = role === 'MANAGER';
   const isReviewer = role === 'REVIEWER';
@@ -82,9 +91,22 @@ export default function TasksTab({ project, role }) {
     }
   };
 
+  const fetchCurrentUser = async () => {
+    try {
+      const res = await fetch('/api/auth/me', { credentials: 'include' });
+      if (res.ok) {
+        const data = await res.json();
+        setCurrentUser(data.user);
+      }
+    } catch (err) {
+      console.error('Failed to load current user context:', err);
+    }
+  };
+
   useEffect(() => {
     fetchTasks();
     fetchMembers();
+    fetchCurrentUser();
   }, [project.id, filterStatus, filterPriority, filterAssignee]);
 
   const handleCreateTask = async (e) => {
@@ -138,11 +160,96 @@ export default function TasksTab({ project, role }) {
     }
   };
 
+  const fetchComments = async (taskId) => {
+    setLoadingComments(true);
+    setCommentError(null);
+    try {
+      const res = await fetch(`/api/projects/${project.id}/tasks/${taskId}/comments`, { credentials: 'include' });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.message || 'Failed to load comments.');
+      }
+      setComments(data.comments || []);
+    } catch (err) {
+      setCommentError(err.message);
+    } finally {
+      setLoadingComments(false);
+    }
+  };
+
+  const handleAddComment = async (e) => {
+    e.preventDefault();
+    if (!newCommentText.trim()) return;
+
+    try {
+      const res = await fetch(`/api/projects/${project.id}/tasks/${selectedTask.id}/comments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: newCommentText }),
+        credentials: 'include'
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.message || 'Failed to post comment.');
+      }
+      setComments((prev) => [...prev, data.comment]);
+      setNewCommentText('');
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const handleUpdateComment = async (commentId) => {
+    if (!editingCommentText.trim()) return;
+
+    try {
+      const res = await fetch(`/api/projects/${project.id}/tasks/${selectedTask.id}/comments/${commentId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: editingCommentText }),
+        credentials: 'include'
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.message || 'Failed to update comment.');
+      }
+      setComments((prev) => prev.map((c) => (c.id === commentId ? data.comment : c)));
+      setEditingCommentId(null);
+      setEditingCommentText('');
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const handleDeleteComment = async (commentId) => {
+    if (!confirm('Are you sure you want to delete this comment?')) return;
+
+    try {
+      const res = await fetch(`/api/projects/${project.id}/tasks/${selectedTask.id}/comments/${commentId}`, {
+        method: 'DELETE',
+        credentials: 'include'
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.message || 'Failed to delete comment.');
+      }
+      setComments((prev) => prev.filter((c) => c.id !== commentId));
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
   const selectTaskForDetails = async (task) => {
     // Reset dependency selectors and warnings
     setSelectedPrereqId('');
     setSelectedDownstreamId('');
     setDepError(null);
+    
+    // Comments state resets
+    setComments([]);
+    setCommentError(null);
+    setNewCommentText('');
+    setEditingCommentId(null);
 
     // Fetch complete details, relations, logs, and warnings
     setLoadingLogs(true);
@@ -159,6 +266,8 @@ export default function TasksTab({ project, role }) {
         setEditAssigneeId(fullTask.assigneeId ? fullTask.assigneeId.toString() : '');
         setEditDueDate(fullTask.dueDate ? new Date(fullTask.dueDate).toISOString().split('T')[0] : '');
         setSelectedTaskLogs(fullTask.activityLogs || []);
+
+        await fetchComments(task.id);
       } else {
         throw new Error('Failed to load task details.');
       }
@@ -892,6 +1001,157 @@ export default function TasksTab({ project, role }) {
               )}
             </div>
 
+          </div>
+
+          {/* Comments Section */}
+          <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '20px' }}>
+            <h4 style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '15px' }}>
+              <MessageSquare size={14} />
+              Discussion Comments
+            </h4>
+
+            {/* Comment Thread List */}
+            {loadingComments ? (
+              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '15px' }}>Loading discussion comments...</div>
+            ) : commentError ? (
+              <div style={{ color: 'var(--color-danger)', fontSize: '12px', marginBottom: '15px' }}>{commentError}</div>
+            ) : comments.length === 0 ? (
+              <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '15px' }}>No comments posted yet.</div>
+            ) : (
+              <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '12px',
+                marginBottom: '20px',
+                maxHeight: '220px',
+                overflowY: 'auto',
+                paddingRight: '4px'
+              }}>
+                {comments.map((c) => {
+                  const isAuthor = currentUser?.id === c.authorId;
+                  const canDeleteComment = canMutate && (isAuthor || isManager);
+                  const isEditing = editingCommentId === c.id;
+
+                  return (
+                    <div key={c.id} style={{
+                      padding: '10px',
+                      background: 'rgba(255,255,255,0.01)',
+                      border: '1px solid var(--border-color)',
+                      borderRadius: '8px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '6px'
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                          {c.author?.name || 'Unknown'} ({c.author?.email})
+                        </span>
+                        <span style={{ fontSize: '9px', color: 'var(--text-muted)' }}>
+                          {new Date(c.createdAt).toLocaleString()}
+                          {c.editedAt && ' (edited)'}
+                        </span>
+                      </div>
+
+                      {isEditing ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          <textarea
+                            value={editingCommentText}
+                            onChange={(e) => setEditingCommentText(e.target.value)}
+                            style={{
+                              width: '100%',
+                              padding: '6px 10px',
+                              background: 'rgba(0,0,0,0.2)',
+                              border: '1px solid var(--border-color)',
+                              borderRadius: '6px',
+                              color: 'var(--text-primary)',
+                              fontSize: '12px',
+                              resize: 'none',
+                              outline: 'none'
+                            }}
+                          />
+                          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                            <button
+                              type="button"
+                              onClick={() => { setEditingCommentId(null); setEditingCommentText(''); }}
+                              style={{ fontSize: '10px', background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateComment(c.id)}
+                              className="btn-primary"
+                              style={{ fontSize: '10px', padding: '4px 8px', borderRadius: '4px' }}
+                            >
+                              Save
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <p style={{ fontSize: '12px', color: 'var(--text-primary)', whiteSpace: 'pre-wrap', lineHeight: '1.4', margin: 0 }}>
+                          {c.content}
+                        </p>
+                      )}
+
+                      {!isEditing && canMutate && (
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', fontSize: '10px' }}>
+                          {isAuthor && (
+                            <button
+                              type="button"
+                              onClick={() => { setEditingCommentId(c.id); setEditingCommentText(c.content); }}
+                              style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+                            >
+                              Edit
+                            </button>
+                          )}
+                          {canDeleteComment && (
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteComment(c.id)}
+                              style={{ background: 'none', border: 'none', color: 'var(--color-danger)', cursor: 'pointer' }}
+                            >
+                              Delete
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Post Comment Input */}
+            {canMutate && (
+              <form onSubmit={handleAddComment} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <textarea
+                  value={newCommentText}
+                  onChange={(e) => setNewCommentText(e.target.value)}
+                  placeholder="Post comment..."
+                  required
+                  style={{
+                    width: '100%',
+                    padding: '10px',
+                    background: 'rgba(255,255,255,0.02)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '8px',
+                    color: 'var(--text-primary)',
+                    fontSize: '13px',
+                    height: '60px',
+                    resize: 'none',
+                    outline: 'none'
+                  }}
+                />
+                <button
+                  type="submit"
+                  disabled={!newCommentText.trim()}
+                  className="btn-primary"
+                  style={{ padding: '8px 16px', fontSize: '12px', alignSelf: 'flex-end', opacity: newCommentText.trim() ? 1 : 0.6 }}
+                >
+                  Comment
+                </button>
+              </form>
+            )}
           </div>
 
           {/* Activity Logs (Audit Trail) */}

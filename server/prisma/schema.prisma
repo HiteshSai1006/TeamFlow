@@ -31,6 +31,7 @@ model User {
   createdTasks       Task[]          @relation("CreatedTasks")
   assignedTasks      Task[]          @relation("AssignedTasks")
   activityLogs       ActivityLog[]
+  comments           Comment[]
 }
 
 enum ProjectStatus {
@@ -102,6 +103,7 @@ model Task {
   activityLogs      ActivityLog[]
   outgoingRelations TaskRelation[] @relation("SourceRelations")
   incomingRelations TaskRelation[] @relation("TargetRelations")
+  comments          Comment[]
 }
 
 enum ActivityEventType {
@@ -140,4 +142,16 @@ model TaskRelation {
   type         RelationType @default(BLOCKS)
 
   @@unique([sourceTaskId, targetTaskId])
+}
+
+model Comment {
+  id        Int       @id @default(autoincrement())
+  taskId    Int
+  task      Task      @relation(fields: [taskId], references: [id], onDelete: Restrict)
+  authorId  Int
+  author    User      @relation(fields: [authorId], references: [id], onDelete: Restrict)
+  content   String
+  editedAt  DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 }
