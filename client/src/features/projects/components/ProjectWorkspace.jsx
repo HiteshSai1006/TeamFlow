@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft, Folder, Users, Archive, LayoutGrid, CheckSquare } from 'lucide-react';
+import { ChevronLeft, Folder, Users, Archive, LayoutGrid, CheckSquare, FileText } from 'lucide-react';
 import ProjectOverview from './ProjectOverview.jsx';
 import ProjectMembers from './ProjectMembers.jsx';
 import TasksTab from './TasksTab.jsx';
+import RcasTab from './RcasTab.jsx';
 
 export default function ProjectWorkspace({ projectId, onBack }) {
   const [project, setProject] = useState(null);
@@ -217,6 +218,26 @@ export default function ProjectWorkspace({ projectId, onBack }) {
           <Users size={16} />
           Members
         </button>
+
+        <button
+          onClick={() => setActiveTab('rcas')}
+          style={{
+            padding: '12px 20px',
+            background: 'none',
+            border: 'none',
+            borderBottom: activeTab === 'rcas' ? '2px solid var(--color-accent)' : '2px solid transparent',
+            color: activeTab === 'rcas' ? 'var(--text-primary)' : 'var(--text-muted)',
+            cursor: 'pointer',
+            fontWeight: 600,
+            fontSize: '14px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}
+        >
+          <FileText size={16} />
+          RCAs
+        </button>
       </div>
 
       {/* Tab components */}
@@ -237,6 +258,12 @@ export default function ProjectWorkspace({ projectId, onBack }) {
         )}
         {activeTab === 'members' && (
           <ProjectMembers
+            project={project}
+            role={role}
+          />
+        )}
+        {activeTab === 'rcas' && (
+          <RcasTab
             project={project}
             role={role}
           />

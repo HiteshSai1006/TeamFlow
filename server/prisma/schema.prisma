@@ -33,6 +33,8 @@ model User {
   activityLogs       ActivityLog[]
   comments           Comment[]
   uploadedAttachments Attachment[]
+  createdRCAs        RCA[]           @relation("CreatedRCAs")
+  reviews            Review[]
 }
 
 enum ProjectStatus {
@@ -52,6 +54,7 @@ model Project {
   members     ProjectMember[]
   tasks       Task[]
   activityLogs ActivityLog[]
+  rcas        RCA[]
 }
 
 enum ProjectRole {
@@ -169,4 +172,76 @@ model Attachment {
   mimeType     String
   size         Int
   createdAt    DateTime @default(now())
+}
+
+enum RCASeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum RCAStatus {
+  DRAFT
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  CLOSED
+}
+
+enum RCASectionType {
+  TIMELINE
+  CONTRIBUTING_FACTORS
+  CORRECTIVE_ACTIONS
+  PREVENTIVE_MEASURES
+}
+
+enum ReviewDecision {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model RCA {
+  id           Int          @id @default(autoincrement())
+  projectId    Int
+  project      Project      @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  title        String
+  description  String?
+  severity     RCASeverity
+  status       RCAStatus    @default(DRAFT)
+  reviewRound  Int          @default(1)
+  createdById  Int
+  createdBy    User         @relation("CreatedRCAs", fields: [createdById], references: [id], onDelete: Restrict)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  sections     RCASection[]
+  reviews      Review[]
+}
+
+model RCASection {
+  id        Int            @id @default(autoincrement())
+  rcaId     Int
+  rca       RCA            @relation(fields: [rcaId], references: [id], onDelete: Restrict)
+  type      RCASectionType
+  content   String
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  @@unique([rcaId, type])
+}
+
+model Review {
+  id         Int            @id @default(autoincrement())
+  rcaId      Int
+  rca        RCA            @relation(fields: [rcaId], references: [id], onDelete: Restrict)
+  reviewerId Int
+  reviewer   User           @relation(fields: [reviewerId], references: [id], onDelete: Restrict)
+  round      Int
+  decision   ReviewDecision @default(PENDING)
+  comment    String?
+  decidedAt  DateTime?
+  createdAt  DateTime       @default(now())
+
+  @@unique([rcaId, reviewerId, round])
 }
