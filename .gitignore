@@ -25,6 +25,14 @@ lerna-debug.log*
 /server/prisma/dev.db
 /server/prisma/dev.db-journal
 
+# Temporary / Local backups
+TeamFlow_Question_paper.docx
+/server/teamflow_db_backup.sql
+
+# Local uploads storage
+/server/uploads/*
+!/server/uploads/.gitkeep
+
 # IDEs and Editors
 .vscode/
 .idea/

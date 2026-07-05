@@ -7,6 +7,7 @@ import authRouter from './modules/auth/auth.routes.js';
 import projectRouter from './modules/project/project.routes.js';
 import taskRouter from './modules/task/task.routes.js';
 import commentRouter from './modules/comment/comment.routes.js';
+import attachmentRouter from './modules/attachment/attachment.routes.js';
 
 const app = express();
 
@@ -34,6 +35,7 @@ app.use('/api/auth', authRouter);
 app.use('/api/projects', projectRouter);
 app.use('/api/projects/:projectId/tasks', taskRouter);
 app.use('/api/projects/:projectId/tasks/:taskId/comments', commentRouter);
+app.use('/api/projects/:projectId/tasks/:taskId/attachments', attachmentRouter);
 
 // Centralized Error Handling Middleware (must be registered last)
 app.use(errorHandler);

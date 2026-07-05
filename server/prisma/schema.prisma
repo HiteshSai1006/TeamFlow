@@ -32,6 +32,7 @@ model User {
   assignedTasks      Task[]          @relation("AssignedTasks")
   activityLogs       ActivityLog[]
   comments           Comment[]
+  uploadedAttachments Attachment[]
 }
 
 enum ProjectStatus {
@@ -104,6 +105,7 @@ model Task {
   outgoingRelations TaskRelation[] @relation("SourceRelations")
   incomingRelations TaskRelation[] @relation("TargetRelations")
   comments          Comment[]
+  attachments       Attachment[]
 }
 
 enum ActivityEventType {
@@ -154,4 +156,17 @@ model Comment {
   editedAt  DateTime?
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
+}
+
+model Attachment {
+  id           Int      @id @default(autoincrement())
+  taskId       Int
+  task         Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  uploadedById Int
+  uploadedBy   User     @relation(fields: [uploadedById], references: [id], onDelete: Restrict)
+  originalName String
+  storageKey   String   @unique
+  mimeType     String
+  size         Int
+  createdAt    DateTime @default(now())
 }

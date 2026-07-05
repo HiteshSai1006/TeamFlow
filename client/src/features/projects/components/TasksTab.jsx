@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, CheckSquare, Calendar, User, Eye, History, AlertTriangle, X, MessageSquare } from 'lucide-react';
+import { Plus, CheckSquare, Calendar, User, Eye, History, AlertTriangle, X, MessageSquare, Paperclip, Download } from 'lucide-react';
 
 export default function TasksTab({ project, role }) {
   const [tasks, setTasks] = useState([]);
@@ -51,6 +51,12 @@ export default function TasksTab({ project, role }) {
   const [editingCommentId, setEditingCommentId] = useState(null);
   const [editingCommentText, setEditingCommentText] = useState('');
   const [currentUser, setCurrentUser] = useState(null);
+
+  // Attachments State
+  const [attachments, setAttachments] = useState([]);
+  const [loadingAttachments, setLoadingAttachments] = useState(false);
+  const [attachmentError, setAttachmentError] = useState(null);
+  const [uploading, setUploading] = useState(false);
 
   const isArchived = project.status === 'ARCHIVED';
   const isManager = role === 'MANAGER';
@@ -177,6 +183,69 @@ export default function TasksTab({ project, role }) {
     }
   };
 
+  const fetchAttachments = async (taskId) => {
+    setLoadingAttachments(true);
+    setAttachmentError(null);
+    try {
+      const res = await fetch(`/api/projects/${project.id}/tasks/${taskId}/attachments`, { credentials: 'include' });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.message || 'Failed to load attachments.');
+      }
+      setAttachments(data.attachments || []);
+    } catch (err) {
+      setAttachmentError(err.message);
+    } finally {
+      setLoadingAttachments(false);
+    }
+  };
+
+  const handleFileUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    setUploading(true);
+    setAttachmentError(null);
+    try {
+      const res = await fetch(`/api/projects/${project.id}/tasks/${selectedTask.id}/attachments`, {
+        method: 'POST',
+        body: formData,
+        credentials: 'include'
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.message || 'Upload failed.');
+      }
+      setAttachments((prev) => [data.attachment, ...prev]);
+      e.target.value = null; // reset file input
+    } catch (err) {
+      setAttachmentError(err.message);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDeleteAttachment = async (attachmentId) => {
+    if (!confirm('Are you sure you want to delete this attachment?')) return;
+
+    try {
+      const res = await fetch(`/api/projects/${project.id}/tasks/${selectedTask.id}/attachments/${attachmentId}`, {
+        method: 'DELETE',
+        credentials: 'include'
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.message || 'Failed to delete attachment.');
+      }
+      setAttachments((prev) => prev.filter((a) => a.id !== attachmentId));
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
   const handleAddComment = async (e) => {
     e.preventDefault();
     if (!newCommentText.trim()) return;
@@ -251,6 +320,11 @@ export default function TasksTab({ project, role }) {
     setNewCommentText('');
     setEditingCommentId(null);
 
+    // Attachments state resets
+    setAttachments([]);
+    setAttachmentError(null);
+    setUploading(false);
+
     // Fetch complete details, relations, logs, and warnings
     setLoadingLogs(true);
     try {
@@ -268,6 +342,7 @@ export default function TasksTab({ project, role }) {
         setSelectedTaskLogs(fullTask.activityLogs || []);
 
         await fetchComments(task.id);
+        await fetchAttachments(task.id);
       } else {
         throw new Error('Failed to load task details.');
       }
@@ -1151,6 +1226,113 @@ export default function TasksTab({ project, role }) {
                   Comment
                 </button>
               </form>
+            )}
+          </div>
+
+          {/* Attachments Section */}
+          <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '20px' }}>
+            <h4 style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '15px' }}>
+              <Paperclip size={14} />
+              Attachments
+            </h4>
+
+            {/* Error display */}
+            {attachmentError && (
+              <div style={{ color: 'var(--color-danger)', fontSize: '12px', marginBottom: '15px' }}>{attachmentError}</div>
+            )}
+
+            {/* Empty state & list */}
+            {loadingAttachments ? (
+              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '15px' }}>Loading attachments...</div>
+            ) : attachments.length === 0 ? (
+              <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '15px' }}>No attachments uploaded yet.</div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '15px' }}>
+                {attachments.map((a) => {
+                  const isUploader = currentUser?.id === a.uploadedById;
+                  const canDeleteAttachment = canMutate && (isUploader || isManager);
+                  
+                  // Helper to format bytes
+                  const kbSize = (a.size / 1024).toFixed(1);
+                  const formattedSize = kbSize > 1000 ? `${(kbSize / 1024).toFixed(1)} MB` : `${kbSize} KB`;
+
+                  return (
+                    <div key={a.id} style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      background: 'rgba(255,255,255,0.01)',
+                      border: '1px solid var(--border-color)',
+                      padding: '8px 12px',
+                      borderRadius: '8px'
+                    }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', maxWidth: '80%' }}>
+                        <a
+                          href={`/api/projects/${project.id}/tasks/${selectedTask.id}/attachments/${a.id}/download`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{
+                            fontSize: '12px',
+                            color: 'var(--color-accent)',
+                            textDecoration: 'none',
+                            fontWeight: 600,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}
+                        >
+                          <Download size={12} />
+                          {a.originalName}
+                        </a>
+                        <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
+                          Size: {formattedSize} • By: {a.uploadedBy?.name || 'Unknown'} • {new Date(a.createdAt).toLocaleString()}
+                        </span>
+                      </div>
+
+                      {canDeleteAttachment && (
+                        <button
+                          onClick={() => handleDeleteAttachment(a.id)}
+                          style={{ background: 'none', border: 'none', color: 'var(--color-danger)', cursor: 'pointer', padding: '4px' }}
+                          title="Delete attachment"
+                        >
+                          <X size={14} />
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Upload Control */}
+            {canMutate && !isReviewer && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <input
+                  type="file"
+                  id="task-file-upload-11b"
+                  onChange={handleFileUpload}
+                  disabled={uploading}
+                  style={{ display: 'none' }}
+                />
+                <label
+                  htmlFor="task-file-upload-11b"
+                  className="btn-secondary"
+                  style={{
+                    fontSize: '12px',
+                    padding: '8px 16px',
+                    justifyContent: 'center',
+                    cursor: uploading ? 'not-allowed' : 'pointer',
+                    textAlign: 'center',
+                    opacity: uploading ? 0.6 : 1
+                  }}
+                >
+                  <Plus size={14} style={{ marginRight: '4px' }} />
+                  {uploading ? 'Uploading...' : 'Choose File to Upload (Max 5MB)'}
+                </label>
+              </div>
             )}
           </div>
 
