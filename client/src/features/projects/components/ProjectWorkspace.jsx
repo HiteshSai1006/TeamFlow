@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft, Folder, Users, Archive, LayoutGrid, CheckSquare, FileText } from 'lucide-react';
+import { ChevronLeft, Folder, Users, Archive, LayoutGrid, CheckSquare, FileText, BarChart2 } from 'lucide-react';
 import ProjectOverview from './ProjectOverview.jsx';
 import ProjectMembers from './ProjectMembers.jsx';
 import TasksTab from './TasksTab.jsx';
 import RcasTab from './RcasTab.jsx';
+import ReportsTab from './ReportsTab.jsx';
 import NavbarNotificationBell from './NavbarNotificationBell.jsx';
 
 export default function ProjectWorkspace({ projectId, onBack }) {
@@ -203,26 +204,6 @@ export default function ProjectWorkspace({ projectId, onBack }) {
         </button>
 
         <button
-          onClick={() => setActiveTab('members')}
-          style={{
-            padding: '12px 20px',
-            background: 'none',
-            border: 'none',
-            borderBottom: activeTab === 'members' ? '2px solid var(--color-accent)' : '2px solid transparent',
-            color: activeTab === 'members' ? 'var(--text-primary)' : 'var(--text-muted)',
-            cursor: 'pointer',
-            fontWeight: 600,
-            fontSize: '14px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px'
-          }}
-        >
-          <Users size={16} />
-          Members
-        </button>
-
-        <button
           onClick={() => setActiveTab('rcas')}
           style={{
             padding: '12px 20px',
@@ -240,6 +221,46 @@ export default function ProjectWorkspace({ projectId, onBack }) {
         >
           <FileText size={16} />
           RCAs
+        </button>
+
+        <button
+          onClick={() => setActiveTab('reports')}
+          style={{
+            padding: '12px 20px',
+            background: 'none',
+            border: 'none',
+            borderBottom: activeTab === 'reports' ? '2px solid var(--color-accent)' : '2px solid transparent',
+            color: activeTab === 'reports' ? 'var(--text-primary)' : 'var(--text-muted)',
+            cursor: 'pointer',
+            fontWeight: 600,
+            fontSize: '14px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}
+        >
+          <BarChart2 size={16} />
+          Reports
+        </button>
+
+        <button
+          onClick={() => setActiveTab('members')}
+          style={{
+            padding: '12px 20px',
+            background: 'none',
+            border: 'none',
+            borderBottom: activeTab === 'members' ? '2px solid var(--color-accent)' : '2px solid transparent',
+            color: activeTab === 'members' ? 'var(--text-primary)' : 'var(--text-muted)',
+            cursor: 'pointer',
+            fontWeight: 600,
+            fontSize: '14px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}
+        >
+          <Users size={16} />
+          Members
         </button>
       </div>
 
@@ -259,14 +280,19 @@ export default function ProjectWorkspace({ projectId, onBack }) {
             role={role}
           />
         )}
-        {activeTab === 'members' && (
-          <ProjectMembers
+        {activeTab === 'rcas' && (
+          <RcasTab
             project={project}
             role={role}
           />
         )}
-        {activeTab === 'rcas' && (
-          <RcasTab
+        {activeTab === 'reports' && (
+          <ReportsTab
+            projectId={projectId}
+          />
+        )}
+        {activeTab === 'members' && (
+          <ProjectMembers
             project={project}
             role={role}
           />
