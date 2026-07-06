@@ -3,6 +3,7 @@ import { protect } from '../../middleware/auth.middleware.js';
 import { requireProjectRole } from '../../middleware/projectAuth.middleware.js';
 import * as projectValidation from './project.validation.js';
 import * as projectController from './project.controller.js';
+import * as preferenceController from './preference.controller.js';
 
 const router = Router();
 
@@ -16,6 +17,10 @@ router.get('/', projectController.list);
 // Specific project endpoints (membership authorized)
 router.get('/:projectId', requireProjectRole(['MANAGER', 'MEMBER', 'REVIEWER']), projectController.get);
 router.patch('/:projectId', requireProjectRole(['MANAGER']), projectController.update);
+
+// Project task view preference endpoints
+router.get('/:projectId/view-preference', requireProjectRole(['MANAGER', 'MEMBER', 'REVIEWER']), preferenceController.getPreference);
+router.patch('/:projectId/view-preference', requireProjectRole(['MANAGER', 'MEMBER', 'REVIEWER']), preferenceController.updatePreference);
 
 // Lifecycle actions
 router.post('/:projectId/archive', requireProjectRole(['MANAGER']), projectController.archive);

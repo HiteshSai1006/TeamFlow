@@ -1,5 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Plus, CheckSquare, Calendar, User, Eye, History, AlertTriangle, X, MessageSquare, Paperclip, Download } from 'lucide-react';
+import TaskViewSwitcher from './TaskViewSwitcher.jsx';
+import KanbanTaskView from './KanbanTaskView.jsx';
+import CalendarTaskView from './CalendarTaskView.jsx';
+import ListTaskView from './ListTaskView.jsx';
 
 export default function TasksTab({ project, role }) {
   const [tasks, setTasks] = useState([]);
@@ -62,6 +66,58 @@ export default function TasksTab({ project, role }) {
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState(null);
 
+  // Task Visualisation & Preferences State
+  const [viewMode, setViewMode] = useState('KANBAN');
+  const [sortBy, setSortBy] = useState('dueDate_asc');
+  const [loadingPreference, setLoadingPreference] = useState(true);
+  const [prefError, setPrefError] = useState(null);
+
+  const latestViewModeRef = useRef('KANBAN');
+
+  const fetchPreference = async () => {
+    setLoadingPreference(true);
+    setPrefError(null);
+    try {
+      const res = await fetch(`/api/projects/${project.id}/view-preference`, { credentials: 'include' });
+      if (res.ok) {
+        const data = await res.json();
+        const serverMode = data.viewMode || 'KANBAN';
+        setViewMode(serverMode);
+        latestViewModeRef.current = serverMode;
+      }
+    } catch (err) {
+      console.error('Failed to load view preference:', err);
+    } finally {
+      setLoadingPreference(false);
+    }
+  };
+
+  const handleViewModeChange = async (newMode) => {
+    const oldMode = viewMode;
+    setViewMode(newMode);
+    latestViewModeRef.current = newMode;
+    setPrefError(null);
+    try {
+      const res = await fetch(`/api/projects/${project.id}/view-preference`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ viewMode: newMode }),
+        credentials: 'include'
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.message || 'Failed to save view preference.');
+      }
+    } catch (err) {
+      console.error('Failed to save view preference:', err);
+      if (latestViewModeRef.current === newMode) {
+        setViewMode(oldMode);
+        latestViewModeRef.current = oldMode;
+      }
+      setPrefError(err.message);
+    }
+  };
+
   const isArchived = project.status === 'ARCHIVED';
   const isManager = role === 'MANAGER';
   const isReviewer = role === 'REVIEWER';
@@ -118,6 +174,10 @@ export default function TasksTab({ project, role }) {
     fetchMembers();
     fetchCurrentUser();
   }, [project.id, filterStatus, filterPriority, filterAssignee]);
+
+  useEffect(() => {
+    fetchPreference();
+  }, [project.id]);
 
   const handleCreateTask = async (e) => {
     e.preventDefault();
@@ -636,6 +696,12 @@ export default function TasksTab({ project, role }) {
             </select>
           </div>
 
+          <TaskViewSwitcher
+            viewMode={viewMode}
+            onChange={handleViewModeChange}
+            loading={loadingPreference}
+          />
+
           <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
             <button
               onClick={handleExportCSV}
@@ -667,6 +733,24 @@ export default function TasksTab({ project, role }) {
 
         </div>
 
+        {prefError && (
+          <div style={{
+            padding: '10px 14px',
+            background: 'rgba(239, 68, 68, 0.08)',
+            border: '1px solid rgba(239, 68, 68, 0.2)',
+            borderRadius: '8px',
+            color: 'var(--color-danger)',
+            fontSize: '12px',
+            marginBottom: '15px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}>
+            <AlertTriangle size={14} />
+            <span>{prefError}</span>
+          </div>
+        )}
+
         {exportError && (
           <div style={{
             padding: '10px 14px',
@@ -685,104 +769,34 @@ export default function TasksTab({ project, role }) {
           </div>
         )}
 
-        {/* Task List Grid */}
-        {loading ? (
-          <div style={{ color: 'var(--text-secondary)', padding: '20px' }}>Querying project tasks...</div>
-        ) : tasks.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-secondary)' }}>
-            No tasks match the active filters or scope.
+        {/* Task Grid Views */}
+        {loading || loadingPreference ? (
+          <div style={{ color: 'var(--text-secondary)', padding: '20px' }}>
+            {loadingPreference ? 'Loading view preference...' : 'Querying project tasks...'}
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {tasks.map((t) => {
-              const isSelected = selectedTask?.id === t.id;
-              const blocked = hasBlockers(t);
-              return (
-                <div
-                  key={t.id}
-                  onClick={() => selectTaskForDetails(t)}
-                  style={{
-                    padding: '16px 20px',
-                    background: isSelected ? 'rgba(255, 255, 255, 0.03)' : 'rgba(255, 255, 255, 0.01)',
-                    border: '1px solid var(--border-color)',
-                    borderColor: isSelected ? 'var(--color-accent)' : 'var(--border-color)',
-                    borderRadius: '10px',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    transition: 'transform 0.15s, border-color 0.15s'
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!isSelected) e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)';
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!isSelected) e.currentTarget.style.borderColor = 'var(--border-color)';
-                  }}
-                >
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <CheckSquare size={14} style={{ color: 'var(--color-accent)' }} />
-                      <span style={{ fontSize: '14px', fontWeight: 600 }}>{t.title}</span>
-                      
-                      {/* Blocked Alert Icon in List */}
-                      {blocked && (
-                        <span style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '3px',
-                          color: '#f59e0b',
-                          background: 'rgba(245, 158, 11, 0.08)',
-                          border: '1px solid rgba(245, 158, 11, 0.15)',
-                          borderRadius: '4px',
-                          padding: '1px 5px',
-                          fontSize: '10px',
-                          fontWeight: 600
-                        }}>
-                          <AlertTriangle size={10} />
-                          blocked
-                        </span>
-                      )}
-                    </div>
-
-                    <div style={{ display: 'flex', gap: '12px', alignItems: 'center', fontSize: '11px', color: 'var(--text-secondary)' }}>
-                      <span style={{
-                        color: t.priority === 'CRITICAL' ? 'var(--color-danger)' : t.priority === 'HIGH' ? '#f59e0b' : t.priority === 'MEDIUM' ? '#3b82f6' : '#9ca3af'
-                      }}>
-                        {t.priority}
-                      </span>
-                      <span>•</span>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <User size={10} />
-                        {t.assignee?.name || 'Unassigned'}
-                      </span>
-                      {t.dueDate && (
-                        <>
-                          <span>•</span>
-                          <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <Calendar size={10} />
-                            {new Date(t.dueDate).toLocaleDateString()}
-                          </span>
-                        </>
-                      )}
-                    </div>
-                  </div>
-
-                  <span style={{
-                    fontSize: '11px',
-                    fontWeight: 700,
-                    padding: '3px 8px',
-                    borderRadius: '20px',
-                    background: t.status === 'DONE' ? 'rgba(16, 185, 129, 0.08)' : t.status === 'BLOCKED' ? 'rgba(239, 68, 68, 0.08)' : t.status === 'IN_PROGRESS' ? 'rgba(59, 130, 246, 0.08)' : 'rgba(156, 163, 175, 0.08)',
-                    color: t.status === 'DONE' ? 'var(--color-success)' : t.status === 'BLOCKED' ? 'var(--color-danger)' : t.status === 'IN_PROGRESS' ? '#3b82f6' : '#9ca3af',
-                    border: `1px solid ${t.status === 'DONE' ? 'rgba(16, 185, 129, 0.15)' : t.status === 'BLOCKED' ? 'rgba(239, 68, 68, 0.15)' : t.status === 'IN_PROGRESS' ? 'rgba(59, 130, 246, 0.15)' : 'rgba(156, 163, 175, 0.15)'}`
-                  }}>
-                    {t.status.replace('_', ' ')}
-                  </span>
-
-                </div>
-              );
-            })}
+          <div>
+            {viewMode === 'KANBAN' && (
+              <KanbanTaskView
+                tasks={tasks}
+                onTaskClick={selectTaskForDetails}
+              />
+            )}
+            {viewMode === 'CALENDAR' && (
+              <CalendarTaskView
+                tasks={tasks}
+                onTaskClick={selectTaskForDetails}
+              />
+            )}
+            {viewMode === 'LIST' && (
+              <ListTaskView
+                tasks={tasks}
+                sortBy={sortBy}
+                onSortChange={setSortBy}
+                onTaskClick={selectTaskForDetails}
+                selectedTask={selectedTask}
+              />
+            )}
           </div>
         )}
 
