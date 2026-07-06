@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './features/auth/context/AuthContext.jsx';
 import { ThemeProvider } from './features/auth/context/ThemeContext.jsx';
 import Login from './features/auth/components/Login.jsx';
@@ -12,6 +12,36 @@ function AppContent() {
   const { user, initializing } = useAuth();
   const [view, setView] = useState('login'); // 'login' or 'register'
   const [activeProjectId, setActiveProjectId] = useState(null);
+  const [restoredProjectUserId, setRestoredProjectUserId] = useState(null);
+
+  // Restore active project ID once the authenticated user context is known
+  useEffect(() => {
+    if (!initializing) {
+      if (user) {
+        const saved = localStorage.getItem(`teamflow:activeProject:${user.id}`);
+        if (saved) {
+          setActiveProjectId(saved);
+        } else {
+          setActiveProjectId(null);
+        }
+        setRestoredProjectUserId(user.id);
+      } else {
+        setActiveProjectId(null);
+        setRestoredProjectUserId(null);
+      }
+    }
+  }, [user, initializing]);
+
+  // Persist project updates after initial restoration finishes
+  useEffect(() => {
+    if (user && restoredProjectUserId === user.id) {
+      if (activeProjectId) {
+        localStorage.setItem(`teamflow:activeProject:${user.id}`, activeProjectId);
+      } else {
+        localStorage.removeItem(`teamflow:activeProject:${user.id}`);
+      }
+    }
+  }, [activeProjectId, restoredProjectUserId, user]);
 
   if (initializing) {
     return (
@@ -40,6 +70,7 @@ function AppContent() {
     return (
       <ProjectWorkspace
         projectId={activeProjectId}
+        userId={user.id}
         onBack={() => setActiveProjectId(null)}
       />
     );

@@ -8,26 +8,58 @@ import ReportsTab from './ReportsTab.jsx';
 import NavbarNotificationBell from './NavbarNotificationBell.jsx';
 import ThemeToggle from './ThemeToggle.jsx';
 
-export default function ProjectWorkspace({ projectId, onBack }) {
+export default function ProjectWorkspace({ projectId, userId, onBack }) {
   const [project, setProject] = useState(null);
   const [role, setRole] = useState('MEMBER'); // MANAGER, MEMBER, REVIEWER
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [activeTab, setActiveTab] = useState('overview'); // overview, members, tasks
+  const [activeTab, setActiveTab] = useState('overview');
+  const [restoredTabKey, setRestoredTabKey] = useState(null); // format: `${userId}:${projectId}`
+
+  // Restore active workspace tab on user or project change
+  useEffect(() => {
+    const currentKey = `${userId}:${projectId}`;
+    const saved = localStorage.getItem(`teamflow:activeTab:${currentKey}`);
+    if (saved) {
+      setActiveTab(saved);
+    } else {
+      setActiveTab('overview');
+    }
+    setRestoredTabKey(currentKey);
+  }, [userId, projectId]);
+
+  // Persist active tab when switched
+  useEffect(() => {
+    const currentKey = `${userId}:${projectId}`;
+    if (restoredTabKey === currentKey) {
+      localStorage.setItem(`teamflow:activeTab:${currentKey}`, activeTab);
+    }
+  }, [activeTab, restoredTabKey, userId, projectId]);
 
   const fetchProjectDetails = async () => {
     setLoading(true);
     setError(null);
     try {
       const res = await fetch(`/api/projects/${projectId}`, { credentials: 'include' });
-      const data = await res.json();
+
       if (!res.ok) {
+        // Safe redirect only for permanent status codes (403/404)
+        if (res.status === 403 || res.status === 404) {
+          console.warn(`Access denied or project not found (${res.status}). Clearing active project.`);
+          localStorage.removeItem(`teamflow:activeProject:${userId}`);
+          onBack();
+          return;
+        }
+        const data = await res.json();
         throw new Error(data.message || 'Failed to load project details.');
       }
+
+      const data = await res.json();
       setProject(data.project);
       setRole(data.role);
     } catch (err) {
-      setError(err.message);
+      console.error('Project details fetch error:', err);
+      setError(err.message || 'A network error occurred.');
     } finally {
       setLoading(false);
     }
