@@ -11,6 +11,7 @@ router.use(requireProjectRole(['MANAGER', 'MEMBER', 'REVIEWER']));
 
 router.post('/', taskValidation.validateCreateTask, taskController.create);
 router.get('/', taskController.list);
+router.get('/export', taskController.exportCSV);
 router.get('/:taskId', taskController.get);
 router.patch('/:taskId', taskValidation.validateUpdateTask, taskController.update);
 

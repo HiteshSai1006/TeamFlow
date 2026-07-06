@@ -21,6 +21,13 @@ router.get(
   rcaController.list
 );
 
+// Export RCAs
+router.get(
+  '/export',
+  requireProjectRole(['MANAGER', 'MEMBER', 'REVIEWER']),
+  rcaController.exportCSV
+);
+
 // Get RCA details
 router.get(
   '/:rcaId',

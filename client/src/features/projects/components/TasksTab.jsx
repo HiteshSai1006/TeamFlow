@@ -58,6 +58,10 @@ export default function TasksTab({ project, role }) {
   const [attachmentError, setAttachmentError] = useState(null);
   const [uploading, setUploading] = useState(false);
 
+  // CSV Export State
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState(null);
+
   const isArchived = project.status === 'ARCHIVED';
   const isManager = role === 'MANAGER';
   const isReviewer = role === 'REVIEWER';
@@ -508,6 +512,50 @@ export default function TasksTab({ project, role }) {
   // Helper to determine if a task has active blockers in the list
   const hasBlockers = (task) => task.warnings?.some((w) => w.code === 'UNFINISHED_BLOCKERS');
 
+  const handleExportCSV = async () => {
+    setExporting(true);
+    setExportError(null);
+    try {
+      const params = new URLSearchParams();
+      if (filterStatus) params.append('status', filterStatus);
+      if (filterPriority) params.append('priority', filterPriority);
+      if (filterAssignee) params.append('assigneeId', filterAssignee);
+
+      const qs = params.toString();
+      const url = `/api/projects/${project.id}/tasks/export${qs ? '?' + qs : ''}`;
+
+      const res = await fetch(url, { credentials: 'include' });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.message || 'Export failed.');
+      }
+
+      const disposition = res.headers.get('content-disposition');
+      let filename = `project-${project.id}-tasks-${new Date().toISOString().replace(/[:.]/g, '')}.csv`;
+      if (disposition && disposition.indexOf('attachment') !== -1) {
+        const filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/;
+        const matches = filenameRegex.exec(disposition);
+        if (matches != null && matches[1]) {
+          filename = matches[1].replace(/['"]/g, '');
+        }
+      }
+
+      const blob = await res.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = downloadUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(downloadUrl);
+    } catch (err) {
+      setExportError(err.message);
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <div style={{ display: 'grid', gridTemplateColumns: selectedTask ? '1fr 480px' : '1fr', gap: '30px', alignItems: 'start' }}>
       
@@ -588,19 +636,54 @@ export default function TasksTab({ project, role }) {
             </select>
           </div>
 
-          {/* Create Button */}
-          {canMutate && (
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
             <button
-              onClick={() => setShowCreateModal(true)}
-              className="btn-primary"
-              style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', padding: '8px 16px' }}
+              onClick={handleExportCSV}
+              disabled={exporting}
+              className="btn-secondary"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontSize: '13px',
+                padding: '8px 16px',
+                cursor: exporting ? 'not-allowed' : 'pointer'
+              }}
             >
-              <Plus size={14} />
-              Add Task
+              <Download size={14} />
+              {exporting ? 'Exporting...' : 'Export CSV'}
             </button>
-          )}
+            {canMutate && (
+              <button
+                onClick={() => setShowCreateModal(true)}
+                className="btn-primary"
+                style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', padding: '8px 16px' }}
+              >
+                <Plus size={14} />
+                Add Task
+              </button>
+            )}
+          </div>
 
         </div>
+
+        {exportError && (
+          <div style={{
+            padding: '10px 14px',
+            background: 'rgba(239, 68, 68, 0.08)',
+            border: '1px solid rgba(239, 68, 68, 0.2)',
+            borderRadius: '8px',
+            color: 'var(--color-danger)',
+            fontSize: '12px',
+            marginBottom: '15px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}>
+            <AlertTriangle size={14} />
+            <span>{exportError}</span>
+          </div>
+        )}
 
         {/* Task List Grid */}
         {loading ? (

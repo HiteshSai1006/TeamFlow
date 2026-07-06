@@ -1,4 +1,5 @@
 import * as taskService from './task.service.js';
+import { tasksToCSV } from './task.export.js';
 
 export async function create(req, res, next) {
   try {
@@ -82,6 +83,23 @@ export async function removeRelation(req, res, next) {
       success: true,
       warnings: result.warnings
     });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function exportCSV(req, res, next) {
+  try {
+    const projectId = parseInt(req.params.projectId, 10);
+    const tasks = await taskService.getTasksForProject(projectId, req.query);
+    const csvContent = tasksToCSV(tasks);
+
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const filename = `project-${projectId}-tasks-${timestamp}.csv`;
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    return res.status(200).send(csvContent);
   } catch (error) {
     next(error);
   }

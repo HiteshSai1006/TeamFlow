@@ -1,4 +1,5 @@
 import * as rcaService from './rca.service.js';
+import { rcasToCSV } from './rca.export.js';
 
 export async function create(req, res, next) {
   try {
@@ -136,6 +137,23 @@ export async function close(req, res, next) {
       success: true,
       rca
     });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function exportCSV(req, res, next) {
+  try {
+    const projectId = parseInt(req.params.projectId, 10);
+    const rcas = await rcaService.listRCAs(projectId);
+    const csvContent = rcasToCSV(rcas);
+
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const filename = `project-${projectId}-rcas-${timestamp}.csv`;
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    return res.status(200).send(csvContent);
   } catch (error) {
     next(error);
   }
