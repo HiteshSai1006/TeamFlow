@@ -37,7 +37,7 @@ model User {
   reviews            Review[]
   eventOutboxes      EventOutbox[]
   notifications      Notification[]
-  notificationPreference UserNotificationPreference?
+  preference UserPreference?
   projectViewPreferences ProjectViewPreference[]
 }
 
@@ -291,12 +291,20 @@ model EventOutbox {
   @@index([processingState, createdAt])
 }
 
-model UserNotificationPreference {
-  id          Int      @id @default(autoincrement())
-  userId      Int      @unique
-  user        User     @relation(fields: [userId], references: [id], onDelete: Restrict)
-  emailOptOut Boolean  @default(false)
-  updatedAt   DateTime @updatedAt
+enum ThemeMode {
+  LIGHT
+  DARK
+}
+
+model UserPreference {
+  id          Int       @id @default(autoincrement())
+  userId      Int       @unique
+  theme       ThemeMode @default(LIGHT)
+  emailOptOut Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  user        User      @relation(fields: [userId], references: [id], onDelete: Restrict)
 }
 
 model Notification {

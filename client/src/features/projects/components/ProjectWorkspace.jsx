@@ -6,6 +6,7 @@ import TasksTab from './TasksTab.jsx';
 import RcasTab from './RcasTab.jsx';
 import ReportsTab from './ReportsTab.jsx';
 import NavbarNotificationBell from './NavbarNotificationBell.jsx';
+import ThemeToggle from './ThemeToggle.jsx';
 
 export default function ProjectWorkspace({ projectId, onBack }) {
   const [project, setProject] = useState(null);
@@ -101,12 +102,7 @@ export default function ProjectWorkspace({ projectId, onBack }) {
           Back to Projects
         </button>
 
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'flex-start',
-          gap: '20px'
-        }}>
+        <div className="nav-header">
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
               <Folder size={24} style={{ color: 'var(--color-accent)' }} />
@@ -150,19 +146,14 @@ export default function ProjectWorkspace({ projectId, onBack }) {
                 <span>Project Archived (Read-Only)</span>
               </div>
             )}
+            <ThemeToggle />
             <NavbarNotificationBell />
           </div>
         </div>
       </div>
 
       {/* Tabs list */}
-      <div style={{
-        display: 'flex',
-        gap: '10px',
-        borderBottom: '1px solid var(--border-color)',
-        marginBottom: '30px',
-        paddingBottom: '2px'
-      }}>
+      <div className="tabs-container">
         <button
           onClick={() => setActiveTab('overview')}
           style={{

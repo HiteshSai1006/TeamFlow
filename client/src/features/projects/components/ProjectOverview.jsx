@@ -94,7 +94,7 @@ export default function ProjectOverview({ project, role, onProjectUpdated, onArc
   };
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 350px', gap: '30px', alignItems: 'start' }}>
+    <div className="overview-layout-grid">
       
       {/* Settings & Info Card */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>

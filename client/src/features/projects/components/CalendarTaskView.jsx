@@ -88,12 +88,7 @@ export default function CalendarTaskView({ tasks, onTaskClick }) {
   const hasBlockers = (task) => task.warnings?.some((w) => w.code === 'UNFINISHED_BLOCKERS');
 
   return (
-    <div style={{
-      display: 'grid',
-      gridTemplateColumns: '1fr 300px',
-      gap: '30px',
-      alignItems: 'start'
-    }}>
+    <div className="calendar-layout-grid">
       {/* Calendar Area */}
       <div className="glass-panel" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '15px' }}>
         {/* Navigation Bar */}

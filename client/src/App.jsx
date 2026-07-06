@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { AuthProvider, useAuth } from './features/auth/context/AuthContext.jsx';
+import { ThemeProvider } from './features/auth/context/ThemeContext.jsx';
 import Login from './features/auth/components/Login.jsx';
 import Register from './features/auth/components/Register.jsx';
 import MyProjects from './features/projects/components/MyProjects.jsx';
@@ -50,9 +51,11 @@ function AppContent() {
 export default function App() {
   return (
     <AuthProvider>
-      <NotificationProvider>
-        <AppContent />
-      </NotificationProvider>
+      <ThemeProvider>
+        <NotificationProvider>
+          <AppContent />
+        </NotificationProvider>
+      </ThemeProvider>
     </AuthProvider>
   );
 }

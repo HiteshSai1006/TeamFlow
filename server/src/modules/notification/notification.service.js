@@ -159,11 +159,11 @@ export async function markAllNotificationsAsRead(userId) {
  * Gets or initializes a user's notification email preference.
  */
 export async function getUserPreference(userId) {
-  let pref = await prisma.userNotificationPreference.findUnique({
+  let pref = await prisma.userPreference.findUnique({
     where: { userId }
   });
   if (!pref) {
-    pref = await prisma.userNotificationPreference.create({
+    pref = await prisma.userPreference.create({
       data: { userId, emailOptOut: false }
     });
   }
@@ -177,7 +177,7 @@ export async function updateUserPreference(userId, emailOptOut) {
   // Ensure initialized
   await getUserPreference(userId);
 
-  return await prisma.userNotificationPreference.update({
+  return await prisma.userPreference.update({
     where: { userId },
     data: { emailOptOut }
   });

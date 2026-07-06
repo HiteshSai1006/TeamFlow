@@ -18,12 +18,29 @@ export function AuthProvider({ children }) {
       if (response.ok) {
         const data = await response.json();
         setUser(data.user);
+
+        // Fetch theme preference in sequence while blocking UI
+        try {
+          const prefRes = await fetch('/api/users/me/preferences', { credentials: 'include' });
+          if (prefRes.ok) {
+            const prefData = await prefRes.json();
+            const theme = prefData.preference?.theme || 'LIGHT';
+            document.documentElement.setAttribute('data-theme', theme.toLowerCase());
+          } else {
+            document.documentElement.setAttribute('data-theme', 'light');
+          }
+        } catch (prefErr) {
+          console.error('[AuthContext] Failed to fetch theme:', prefErr);
+          document.documentElement.setAttribute('data-theme', 'light');
+        }
       } else {
         setUser(null);
+        document.documentElement.setAttribute('data-theme', 'light');
       }
     } catch (err) {
       console.error('[AuthContext] Failed to fetch current user:', err);
       setUser(null);
+      document.documentElement.setAttribute('data-theme', 'light');
     } finally {
       setInitializing(false);
     }
@@ -50,6 +67,20 @@ export function AuthProvider({ children }) {
       const data = await response.json();
       if (!response.ok) {
         throw new Error(data.message || 'Invalid credentials.');
+      }
+
+      // Fetch theme preference after login
+      try {
+        const prefRes = await fetch('/api/users/me/preferences', { credentials: 'include' });
+        if (prefRes.ok) {
+          const prefData = await prefRes.json();
+          const theme = prefData.preference?.theme || 'LIGHT';
+          document.documentElement.setAttribute('data-theme', theme.toLowerCase());
+        } else {
+          document.documentElement.setAttribute('data-theme', 'light');
+        }
+      } catch (prefErr) {
+        document.documentElement.setAttribute('data-theme', 'light');
       }
       
       setUser(data.user);
@@ -81,6 +112,9 @@ export function AuthProvider({ children }) {
         throw new Error(data.message || 'Registration failed.');
       }
 
+      // Apply default LIGHT theme for new registers
+      document.documentElement.setAttribute('data-theme', 'light');
+
       setUser(data.user);
       return data.user;
     } catch (err) {
@@ -102,6 +136,7 @@ export function AuthProvider({ children }) {
     } catch (err) {
       console.error('[AuthContext] Logout endpoint error:', err);
     } finally {
+      document.documentElement.setAttribute('data-theme', 'light');
       setUser(null);
       setLoading(false);
     }

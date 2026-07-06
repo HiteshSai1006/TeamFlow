@@ -126,7 +126,7 @@ export default function ProjectMembers({ project, role }) {
   }
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 350px', gap: '30px', alignItems: 'start' }}>
+    <div className="members-layout-grid">
       
       {/* Members Registry List */}
       <div className="glass-panel" style={{ padding: '24px' }}>

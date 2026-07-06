@@ -617,7 +617,7 @@ export default function TasksTab({ project, role }) {
   };
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: selectedTask ? '1fr 480px' : '1fr', gap: '30px', alignItems: 'start' }}>
+    <div className={`tasks-layout-grid ${selectedTask ? 'has-selected' : ''}`}>
       
       {/* Task List Panel */}
       <div className="glass-panel" style={{ padding: '24px' }}>

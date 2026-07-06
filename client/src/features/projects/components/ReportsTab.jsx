@@ -180,7 +180,7 @@ export default function ReportsTab({ projectId }) {
       )}
 
       {/* 2. TASK DISTRIBUTIONS */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '20px' }}>
+      <div className="reports-grid">
         
         {/* Status Distribution */}
         <div style={{ background: 'var(--color-card)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '24px' }}>
@@ -247,7 +247,7 @@ export default function ReportsTab({ projectId }) {
       </div>
 
       {/* 3. TRENDS SECTION */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '20px' }}>
+      <div className="reports-grid">
         
         {/* Velocity Trend */}
         <div style={{ background: 'var(--color-card)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '24px' }}>
@@ -356,7 +356,7 @@ export default function ReportsTab({ projectId }) {
       </div>
 
       {/* 5. RCA STATUS & SEVERITY */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '20px' }}>
+      <div className="reports-grid">
         
         {/* RCA Status Distribution */}
         <div style={{ background: 'var(--color-card)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '24px' }}>

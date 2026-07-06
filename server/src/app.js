@@ -12,6 +12,7 @@ import rcaRouter from './modules/rca/rca.routes.js';
 import reviewRouter from './modules/review/review.routes.js';
 import notificationRouter from './modules/notification/notification.routes.js';
 import reportRouter from './modules/report/report.routes.js';
+import userRouter from './modules/user/user.routes.js';
 
 const app = express();
 
@@ -44,6 +45,7 @@ app.use('/api/projects/:projectId/rcas', rcaRouter);
 app.use('/api/projects/:projectId/reports', reportRouter);
 app.use('/api/reviews', reviewRouter);
 app.use('/api/notifications', notificationRouter);
+app.use('/api/users', userRouter);
 
 // Centralized Error Handling Middleware (must be registered last)
 app.use(errorHandler);

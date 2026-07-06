@@ -14,22 +14,7 @@ export default function NotificationPanel({ onClose }) {
   } = useNotifications();
 
   return (
-    <div style={{
-      position: 'absolute',
-      top: '55px',
-      right: '0',
-      width: '360px',
-      maxHeight: '480px',
-      background: 'rgba(23, 23, 23, 0.95)',
-      backdropFilter: 'blur(16px)',
-      border: '1px solid var(--border-color)',
-      borderRadius: '12px',
-      boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
-      zIndex: 1000,
-      display: 'flex',
-      flexDirection: 'column',
-      overflow: 'hidden'
-    }}>
+    <div className="notification-dropdown">
       {/* Header */}
       <div style={{
         padding: '16px',

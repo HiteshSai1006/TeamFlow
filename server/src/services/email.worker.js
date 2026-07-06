@@ -82,11 +82,11 @@ export async function runEmailWorker() {
     for (const notif of claimedNotifications) {
       try {
         // Fetch recipient preference
-        let pref = await prisma.userNotificationPreference.findUnique({
+        let pref = await prisma.userPreference.findUnique({
           where: { userId: notif.recipientId }
         });
         if (!pref) {
-          pref = await prisma.userNotificationPreference.create({
+          pref = await prisma.userPreference.create({
             data: { userId: notif.recipientId, emailOptOut: false }
           });
         }

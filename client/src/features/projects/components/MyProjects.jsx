@@ -3,6 +3,7 @@ import { useAuth } from '../../auth/context/AuthContext.jsx';
 import { LogOut, Folder, Plus, Activity, Archive, Server, Database } from 'lucide-react';
 import CreateProjectModal from './CreateProjectModal.jsx';
 import NavbarNotificationBell from './NavbarNotificationBell.jsx';
+import ThemeToggle from './ThemeToggle.jsx';
 
 export default function MyProjects({ onSelectProject }) {
   const { user, logout } = useAuth();
@@ -55,14 +56,7 @@ export default function MyProjects({ onSelectProject }) {
   return (
     <div style={{ padding: '40px 20px', maxWidth: '1200px', margin: '0 auto' }}>
       {/* Header bar */}
-      <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: '40px',
-        paddingBottom: '20px',
-        borderBottom: '1px solid var(--border-color)'
-      }}>
+      <div className="nav-header">
         <div>
           <h1 style={{ fontSize: '28px', fontFamily: 'var(--font-display)', display: 'flex', alignItems: 'center', gap: '10px' }}>
             Operations Control
@@ -73,6 +67,7 @@ export default function MyProjects({ onSelectProject }) {
         </div>
 
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+          <ThemeToggle />
           <NavbarNotificationBell />
           <button
             onClick={() => setShowModal(true)}
@@ -104,7 +99,7 @@ export default function MyProjects({ onSelectProject }) {
       </div>
 
       {/* Main dashboard content */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: '30px' }}>
+      <div className="projects-layout-grid">
         
         {/* Left Side: Projects List */}
         <div>
