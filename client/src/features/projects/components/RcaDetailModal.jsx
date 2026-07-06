@@ -197,7 +197,7 @@ export default function RcaDetailModal({ projectId, rcaId, role, onClose, onRcaU
 
   if (loading) {
     return (
-      <div className="modal-backdrop">
+      <div className="modal-backdrop" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', overflowY: 'auto' }}>
         <p style={{ color: '#fff' }}>Loading RCA details...</p>
       </div>
     );
@@ -205,7 +205,7 @@ export default function RcaDetailModal({ projectId, rcaId, role, onClose, onRcaU
 
   if (error) {
     return (
-      <div className="modal-backdrop">
+      <div className="modal-backdrop" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', overflowY: 'auto' }}>
         <div className="glass-panel" style={{ padding: '20px', textAlign: 'center', background: 'var(--bg-card)' }}>
           <p style={{ color: 'var(--color-danger)' }}>{error}</p>
           <button onClick={onClose} style={{ marginTop: '15px', padding: '8px 16px', background: 'var(--color-accent)', border: 'none', borderRadius: '6px', color: '#fff', cursor: 'pointer' }}>Close</button>
@@ -215,7 +215,7 @@ export default function RcaDetailModal({ projectId, rcaId, role, onClose, onRcaU
   }
 
   return (
-    <div className="modal-backdrop">
+    <div className="modal-backdrop" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', overflowY: 'auto' }}>
       <div className="glass-panel" style={{ width: '100%', maxWidth: '850px', maxHeight: '90vh', overflowY: 'auto', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '30px', position: 'relative' }}>
         
         {/* Close Button */}
