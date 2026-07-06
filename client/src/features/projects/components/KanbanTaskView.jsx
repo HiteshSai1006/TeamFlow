@@ -88,24 +88,17 @@ export default function KanbanTaskView({ tasks, onTaskClick }) {
                     <div
                       key={t.id}
                       onClick={() => onTaskClick(t)}
+                      className="interactive-card"
+                      tabIndex={0}
                       style={{
                         padding: '14px',
-                        background: 'rgba(255, 255, 255, 0.02)',
+                        background: 'var(--bg-card)',
                         border: '1px solid var(--border-color)',
                         borderRadius: '10px',
                         cursor: 'pointer',
                         display: 'flex',
                         flexDirection: 'column',
-                        gap: '8px',
-                        transition: 'border-color 0.15s, transform 0.15s'
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)';
-                        e.currentTarget.style.transform = 'translateY(-2px)';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.borderColor = 'var(--border-color)';
-                        e.currentTarget.style.transform = 'translateY(0)';
+                        gap: '8px'
                       }}
                     >
                       {/* Card title and Blocker badge */}

@@ -118,23 +118,18 @@ export default function ListTaskView({
               <div
                 key={t.id}
                 onClick={() => onTaskClick(t)}
+                className={`list-task-item ${isSelected ? 'selected' : ''}`}
+                tabIndex={0}
                 style={{
                   padding: '16px 20px',
-                  background: isSelected ? 'rgba(255, 255, 255, 0.03)' : 'rgba(255, 255, 255, 0.01)',
+                  background: isSelected ? 'rgba(var(--color-accent-rgb), 0.08)' : 'var(--bg-input)',
                   border: '1px solid var(--border-color)',
                   borderColor: isSelected ? 'var(--color-accent)' : 'var(--border-color)',
                   borderRadius: '10px',
                   cursor: 'pointer',
                   display: 'flex',
                   justifyContent: 'space-between',
-                  alignItems: 'center',
-                  transition: 'transform 0.15s, border-color 0.15s'
-                }}
-                onMouseEnter={(e) => {
-                  if (!isSelected) e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)';
-                }}
-                onMouseLeave={(e) => {
-                  if (!isSelected) e.currentTarget.style.borderColor = 'var(--border-color)';
+                  alignItems: 'center'
                 }}
               >
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>

@@ -137,22 +137,14 @@ export default function MyProjects({ onSelectProject }) {
                 <div
                   key={project.id}
                   onClick={() => onSelectProject(project.id)}
-                  className="glass-panel"
+                  className="glass-panel interactive-card"
+                  tabIndex={0}
                   style={{
                     padding: '24px',
                     cursor: 'pointer',
                     display: 'flex',
                     justifyContent: 'space-between',
-                    alignItems: 'center',
-                    transition: 'transform 0.2s, border-color 0.2s',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.borderColor = 'var(--color-accent)';
-                    e.currentTarget.style.transform = 'translateY(-2px)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.borderColor = 'var(--border-color)';
-                    e.currentTarget.style.transform = 'none';
+                    alignItems: 'center'
                   }}
                 >
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>

@@ -91,7 +91,7 @@ export default function ReportsTab({ projectId }) {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px' }}>
         
         {/* Completion Rate Card */}
-        <div style={{ background: 'var(--color-card)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '20px', display: 'flex', gap: '15px', alignItems: 'center' }}>
+        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '20px', display: 'flex', gap: '15px', alignItems: 'center' }}>
           <div style={{ padding: '10px', background: 'rgba(59, 130, 246, 0.08)', borderRadius: '10px', color: 'var(--color-accent)' }}>
             <TrendingUp size={24} />
           </div>
@@ -107,7 +107,7 @@ export default function ReportsTab({ projectId }) {
         </div>
 
         {/* Active Tasks Card */}
-        <div style={{ background: 'var(--color-card)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '20px', display: 'flex', gap: '15px', alignItems: 'center' }}>
+        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '20px', display: 'flex', gap: '15px', alignItems: 'center' }}>
           <div style={{ padding: '10px', background: 'rgba(255,255,255,0.03)', borderRadius: '10px', color: 'var(--text-primary)' }}>
             <Activity size={24} />
           </div>
@@ -123,7 +123,7 @@ export default function ReportsTab({ projectId }) {
         </div>
 
         {/* Overdue Tasks Card */}
-        <div style={{ background: 'var(--color-card)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '20px', display: 'flex', gap: '15px', alignItems: 'center' }}>
+        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '20px', display: 'flex', gap: '15px', alignItems: 'center' }}>
           <div style={{ padding: '10px', background: overdue.count > 0 ? 'rgba(239, 68, 68, 0.08)' : 'rgba(255,255,255,0.03)', borderRadius: '10px', color: overdue.count > 0 ? 'var(--color-danger)' : 'var(--text-secondary)' }}>
             <Clock size={24} />
           </div>
@@ -139,7 +139,7 @@ export default function ReportsTab({ projectId }) {
         </div>
 
         {/* Project Health Card */}
-        <div style={{ background: 'var(--color-card)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '20px', display: 'flex', gap: '15px', alignItems: 'center' }}>
+        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '20px', display: 'flex', gap: '15px', alignItems: 'center' }}>
           <div style={{ padding: '10px', background: `${getHealthColor(projectHealth.label)}15`, borderRadius: '10px', color: getHealthColor(projectHealth.label) }}>
             <Sparkles size={24} />
           </div>
@@ -183,7 +183,7 @@ export default function ReportsTab({ projectId }) {
       <div className="reports-grid">
         
         {/* Status Distribution */}
-        <div style={{ background: 'var(--color-card)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '24px' }}>
+        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '24px' }}>
           <h3 style={{ fontSize: '15px', fontWeight: 600, marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px', fontFamily: 'var(--font-display)' }}>
             <BarChart2 size={16} />
             Task Status Distribution
@@ -214,7 +214,7 @@ export default function ReportsTab({ projectId }) {
         </div>
 
         {/* Priority Distribution */}
-        <div style={{ background: 'var(--color-card)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '24px' }}>
+        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '24px' }}>
           <h3 style={{ fontSize: '15px', fontWeight: 600, marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px', fontFamily: 'var(--font-display)' }}>
             <BarChart2 size={16} />
             Task Priority Distribution
@@ -250,7 +250,7 @@ export default function ReportsTab({ projectId }) {
       <div className="reports-grid">
         
         {/* Velocity Trend */}
-        <div style={{ background: 'var(--color-card)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '24px' }}>
+        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '24px' }}>
           <h3 style={{ fontSize: '15px', fontWeight: 600, marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px', fontFamily: 'var(--font-display)' }}>
             <TrendingUp size={16} />
             Weekly Task Velocity (Last 6 Weeks)
@@ -278,7 +278,7 @@ export default function ReportsTab({ projectId }) {
         </div>
 
         {/* RCA Creation Volume */}
-        <div style={{ background: 'var(--color-card)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '24px' }}>
+        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '24px' }}>
           <h3 style={{ fontSize: '15px', fontWeight: 600, marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px', fontFamily: 'var(--font-display)' }}>
             <TrendingUp size={16} />
             RCA Volume Trend (Last 6 Weeks)
@@ -308,7 +308,7 @@ export default function ReportsTab({ projectId }) {
       </div>
 
       {/* 4. WORKLOAD PER ASSIGNEE */}
-      <div style={{ background: 'var(--color-card)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '24px', overflowX: 'auto' }}>
+      <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '24px', overflowX: 'auto' }}>
         <h3 style={{ fontSize: '15px', fontWeight: 600, marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px', fontFamily: 'var(--font-display)' }}>
           <UserCheck size={16} />
           Workload by Assignee (Threshold: &gt;5 Active is High)
@@ -359,7 +359,7 @@ export default function ReportsTab({ projectId }) {
       <div className="reports-grid">
         
         {/* RCA Status Distribution */}
-        <div style={{ background: 'var(--color-card)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '24px' }}>
+        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '24px' }}>
           <h3 style={{ fontSize: '15px', fontWeight: 600, marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px', fontFamily: 'var(--font-display)' }}>
             <BarChart2 size={16} />
             RCA Status Distribution
@@ -390,7 +390,7 @@ export default function ReportsTab({ projectId }) {
         </div>
 
         {/* RCA Severity Distribution */}
-        <div style={{ background: 'var(--color-card)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '24px' }}>
+        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '24px' }}>
           <h3 style={{ fontSize: '15px', fontWeight: 600, marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px', fontFamily: 'var(--font-display)' }}>
             <BarChart2 size={16} />
             RCA Severity Distribution
@@ -423,7 +423,7 @@ export default function ReportsTab({ projectId }) {
       </div>
 
       {/* 6. OVERDUE TASK LIST */}
-      <div style={{ background: 'var(--color-card)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '24px' }}>
+      <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '24px' }}>
         <h3 style={{ fontSize: '15px', fontWeight: 600, marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px', fontFamily: 'var(--font-display)', color: overdue.count > 0 ? 'var(--color-danger)' : 'var(--text-primary)' }}>
           <AlertCircle size={16} />
           Overdue Tasks List ({overdue.count})

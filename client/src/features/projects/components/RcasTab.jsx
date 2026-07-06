@@ -201,21 +201,13 @@ export default function RcasTab({ project, role }) {
               <div
                 key={r.id}
                 onClick={() => setActiveRcaId(r.rcaId)}
-                className="glass-panel"
+                className="glass-panel interactive-card"
+                tabIndex={0}
                 style={{
                   padding: '15px',
                   cursor: 'pointer',
                   border: '1px solid var(--border-color)',
-                  background: 'rgba(255,255,255,0.01)',
-                  transition: 'transform 0.2s, background 0.2s'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = 'translateY(-2px)';
-                  e.currentTarget.style.background = 'rgba(255,255,255,0.03)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = 'none';
-                  e.currentTarget.style.background = 'rgba(255,255,255,0.01)';
+                  background: 'var(--bg-card)'
                 }}
               >
                 <h4 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '6px' }}>{r.rca.title}</h4>

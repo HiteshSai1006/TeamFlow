@@ -54,7 +54,7 @@ export default function NavbarNotificationBell() {
             alignItems: 'center',
             justifyContent: 'center',
             boxShadow: '0 2px 4px rgba(0,0,0,0.3)',
-            border: '2px solid rgb(23, 23, 23)'
+            border: '2px solid var(--select-option-bg)'
           }}>
             {unreadCount}
           </span>

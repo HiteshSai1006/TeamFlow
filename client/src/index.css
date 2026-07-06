@@ -389,10 +389,87 @@ select {
   overflow: hidden;
 }
 
-.mention-item:hover {
-  background: rgba(255, 255, 255, 0.08) !important;
+.mention-item {
+  transition: background-color 0.2s ease;
+  outline: none;
 }
 
-[data-theme="dark"] .mention-item:hover {
+.mention-item:hover,
+.mention-item:focus-visible {
+  background: rgba(139, 92, 246, 0.08) !important;
+}
+
+[data-theme="dark"] .mention-item:hover,
+[data-theme="dark"] .mention-item:focus-visible {
   background: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Modal Backdrop */
+.modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(9, 7, 15, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  z-index: 1100;
+}
+
+/* Form Input Consistency */
+.form-input {
+  width: 100%;
+  padding: 10px 14px;
+  background: var(--bg-input) !important;
+  border: 1px solid var(--bg-input-border) !important;
+  border-radius: 10px;
+  color: var(--text-primary) !important;
+  font-family: var(--font-primary);
+  font-size: 14px;
+  outline: none;
+  transition: var(--transition-smooth);
+}
+
+.form-input::placeholder {
+  color: var(--text-muted);
+  opacity: 0.8;
+}
+
+.form-input:hover:not(:disabled) {
+  border-color: rgba(var(--color-accent-rgb), 0.3) !important;
+}
+
+.form-input:focus:not(:disabled) {
+  border-color: var(--color-accent) !important;
+  box-shadow: 0 0 0 3px rgba(var(--color-accent-rgb), 0.15);
+}
+
+.form-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Interactive Card Hover & Focus States */
+.interactive-card {
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease !important;
+}
+
+.interactive-card:hover,
+.interactive-card:focus-visible {
+  border-color: var(--color-accent) !important;
+  transform: translateY(-2px);
+  outline: none;
+}
+
+/* List Task Item Hover/Focus */
+.list-task-item {
+  transition: transform 0.2s ease, border-color 0.2s ease !important;
+}
+
+.list-task-item:hover:not(.selected),
+.list-task-item:focus-visible:not(.selected) {
+  border-color: rgba(var(--color-accent-rgb), 0.4) !important;
+  transform: translateY(-1px);
+  outline: none;
 }

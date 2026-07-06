@@ -154,8 +154,8 @@ export default function CalendarTaskView({ tasks, onTaskClick }) {
                   minHeight: '85px',
                   padding: '8px',
                   background: cell.isCurrentMonth
-                    ? 'rgba(255, 255, 255, 0.01)'
-                    : 'rgba(255, 255, 255, 0.002)',
+                    ? 'var(--bg-input)'
+                    : 'transparent',
                   border: isToday
                     ? '1px solid var(--color-accent)'
                     : '1px solid var(--border-color)',
@@ -192,7 +192,7 @@ export default function CalendarTaskView({ tasks, onTaskClick }) {
                         fontSize: '9px',
                         fontWeight: 600,
                         padding: '2px 4px',
-                        background: 'rgba(255, 255, 255, 0.03)',
+                        background: 'var(--bg-input)',
                         border: '1px solid var(--border-color)',
                         borderRadius: '4px',
                         cursor: 'pointer',
@@ -243,19 +243,18 @@ export default function CalendarTaskView({ tasks, onTaskClick }) {
                 <div
                   key={t.id}
                   onClick={() => onTaskClick(t)}
+                  className="interactive-card"
+                  tabIndex={0}
                   style={{
                     padding: '10px 12px',
-                    background: 'rgba(255, 255, 255, 0.02)',
+                    background: 'var(--bg-input)',
                     border: '1px solid var(--border-color)',
                     borderRadius: '8px',
                     cursor: 'pointer',
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: '4px',
-                    transition: 'border-color 0.15s'
+                    gap: '4px'
                   }}
-                  onMouseEnter={(e) => e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)'}
-                  onMouseLeave={(e) => e.currentTarget.style.borderColor = 'var(--border-color)'}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
                     <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>

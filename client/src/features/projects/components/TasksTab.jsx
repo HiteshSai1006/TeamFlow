@@ -1245,7 +1245,7 @@ export default function TasksTab({ project, role }) {
                 flexDirection: 'column',
                 gap: '12px',
                 marginBottom: '20px',
-                maxHeight: '220px',
+                maxHeight: '350px',
                 overflowY: 'auto',
                 paddingRight: '4px'
               }}>
@@ -1257,7 +1257,7 @@ export default function TasksTab({ project, role }) {
                   return (
                     <div key={c.id} style={{
                       padding: '10px',
-                      background: 'rgba(255,255,255,0.01)',
+                      background: 'var(--bg-input)',
                       border: '1px solid var(--border-color)',
                       borderRadius: '8px',
                       display: 'flex',
@@ -1282,7 +1282,7 @@ export default function TasksTab({ project, role }) {
                             style={{
                               width: '100%',
                               padding: '6px 10px',
-                              background: 'rgba(0,0,0,0.2)',
+                              background: 'var(--bg-input)',
                               border: '1px solid var(--border-color)',
                               borderRadius: '6px',
                               color: 'var(--text-primary)',
@@ -1354,7 +1354,7 @@ export default function TasksTab({ project, role }) {
                   style={{
                     width: '100%',
                     padding: '10px',
-                    background: 'rgba(255,255,255,0.02)',
+                    background: 'var(--bg-input)',
                     border: '1px solid var(--border-color)',
                     borderRadius: '8px',
                     color: 'var(--text-primary)',
