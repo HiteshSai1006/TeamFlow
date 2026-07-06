@@ -135,7 +135,14 @@ export default function ListTaskView({
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <CheckSquare size={14} style={{ color: 'var(--color-accent)' }} />
-                    <span style={{ fontSize: '14px', fontWeight: 600 }}>{t.title}</span>
+                    <span style={{ fontSize: '14px', fontWeight: 600 }}>
+                      {t.title}
+                      {t.parent && (
+                        <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginLeft: '6px', fontWeight: 'normal' }}>
+                          (Subtask of: {t.parent.title})
+                        </span>
+                      )}
+                    </span>
 
                     {blocked && (
                       <span style={{

@@ -115,6 +115,11 @@ model Task {
   incomingRelations TaskRelation[] @relation("TargetRelations")
   comments          Comment[]
   attachments       Attachment[]
+  parentId          Int?
+  parent            Task?          @relation("TaskHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  subtasks          Task[]         @relation("TaskHierarchy")
+
+  @@index([parentId])
 }
 
 enum ActivityEventType {

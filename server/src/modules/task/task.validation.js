@@ -2,7 +2,7 @@
  * Validates inputs for task creation.
  */
 export function validateCreateTask(req, res, next) {
-  const { title, priority, status, assigneeId, dueDate } = req.body;
+  const { title, priority, status, assigneeId, dueDate, parentId } = req.body;
 
   if (!title || !title.trim()) {
     return res.status(400).json({
@@ -55,6 +55,18 @@ export function validateCreateTask(req, res, next) {
     }
   }
 
+  if (parentId !== undefined && parentId !== null) {
+    const parsedId = parseInt(parentId, 10);
+    if (isNaN(parsedId)) {
+      return res.status(400).json({
+        success: false,
+        status: 'error',
+        statusCode: 400,
+        message: 'Invalid parent task ID format.'
+      });
+    }
+  }
+
   next();
 }
 
@@ -62,7 +74,7 @@ export function validateCreateTask(req, res, next) {
  * Validates inputs for task updates.
  */
 export function validateUpdateTask(req, res, next) {
-  const { title, priority, status, assigneeId, dueDate } = req.body;
+  const { title, priority, status, assigneeId, dueDate, parentId } = req.body;
 
   if (title !== undefined && (!title || !title.trim())) {
     return res.status(400).json({
@@ -111,6 +123,18 @@ export function validateUpdateTask(req, res, next) {
         status: 'error',
         statusCode: 400,
         message: 'Invalid due date format.'
+      });
+    }
+  }
+
+  if (parentId !== undefined && parentId !== null) {
+    const parsedId = parseInt(parentId, 10);
+    if (isNaN(parsedId)) {
+      return res.status(400).json({
+        success: false,
+        status: 'error',
+        statusCode: 400,
+        message: 'Invalid parent task ID format.'
       });
     }
   }

@@ -29,6 +29,7 @@ export default function TasksTab({ project, role }) {
   const [newStatus, setNewStatus] = useState('TODO');
   const [newAssigneeId, setNewAssigneeId] = useState('');
   const [newDueDate, setNewDueDate] = useState('');
+  const [newParentId, setNewParentId] = useState('');
   const [createError, setCreateError] = useState(null);
   const [creating, setCreating] = useState(false);
 
@@ -39,8 +40,12 @@ export default function TasksTab({ project, role }) {
   const [editStatus, setEditStatus] = useState('TODO');
   const [editAssigneeId, setEditAssigneeId] = useState('');
   const [editDueDate, setEditDueDate] = useState('');
+  const [editParentId, setEditParentId] = useState('');
   const [editError, setEditError] = useState(null);
   const [updating, setUpdating] = useState(false);
+
+  // Unfiltered Tasks for Parent Selector
+  const [unfilteredTasks, setUnfilteredTasks] = useState([]);
 
   // Dependencies State
   const [selectedPrereqId, setSelectedPrereqId] = useState('');
@@ -171,8 +176,21 @@ export default function TasksTab({ project, role }) {
     }
   };
 
+  const fetchUnfilteredTasks = async () => {
+    try {
+      const res = await fetch(`/api/projects/${project.id}/tasks`, { credentials: 'include' });
+      if (res.ok) {
+        const data = await res.json();
+        setUnfilteredTasks(data.tasks || []);
+      }
+    } catch (err) {
+      console.error('Failed to load unfiltered project tasks:', err);
+    }
+  };
+
   useEffect(() => {
     fetchTasks();
+    fetchUnfilteredTasks();
     fetchMembers();
     fetchCurrentUser();
   }, [project.id, filterStatus, filterPriority, filterAssignee]);
@@ -204,6 +222,10 @@ export default function TasksTab({ project, role }) {
         payload.assigneeId = parseInt(newAssigneeId, 10);
       }
 
+      if (newParentId) {
+        payload.parentId = parseInt(newParentId, 10);
+      }
+
       const res = await fetch(`/api/projects/${project.id}/tasks`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -217,6 +239,7 @@ export default function TasksTab({ project, role }) {
       }
 
       setTasks((prev) => [data.task, ...prev]);
+      fetchUnfilteredTasks();
       setShowCreateModal(false);
       // Reset Form
       setNewTitle('');
@@ -225,6 +248,7 @@ export default function TasksTab({ project, role }) {
       setNewStatus('TODO');
       setNewAssigneeId('');
       setNewDueDate('');
+      setNewParentId('');
     } catch (err) {
       setCreateError(err.message);
     } finally {
@@ -453,6 +477,7 @@ export default function TasksTab({ project, role }) {
         setEditStatus(fullTask.status);
         setEditAssigneeId(fullTask.assigneeId ? fullTask.assigneeId.toString() : '');
         setEditDueDate(fullTask.dueDate ? new Date(fullTask.dueDate).toISOString().split('T')[0] : '');
+        setEditParentId(fullTask.parentId ? fullTask.parentId.toString() : '');
         setSelectedTaskLogs(fullTask.activityLogs || []);
 
         await fetchComments(task.id);
@@ -479,7 +504,8 @@ export default function TasksTab({ project, role }) {
         description: editDesc,
         priority: editPriority,
         status: editStatus,
-        dueDate: editDueDate || null
+        dueDate: editDueDate || null,
+        parentId: editParentId ? parseInt(editParentId, 10) : null
       };
       
       if (isManager) {
@@ -500,6 +526,7 @@ export default function TasksTab({ project, role }) {
 
       // Update task in main lists
       setTasks((prev) => prev.map((t) => (t.id === selectedTask.id ? data.task : t)));
+      fetchUnfilteredTasks();
       
       // Reload details
       await selectTaskForDetails(data.task);
@@ -771,7 +798,7 @@ export default function TasksTab({ project, role }) {
             </button>
             {canMutate && (
               <button
-                onClick={() => setShowCreateModal(true)}
+                onClick={() => { setNewParentId(''); setShowCreateModal(true); }}
                 className="btn-primary"
                 style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', padding: '8px 16px' }}
               >
@@ -1049,6 +1076,31 @@ export default function TasksTab({ project, role }) {
               </div>
             </div>
 
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Parent Task</label>
+              <select
+                value={editParentId}
+                onChange={(e) => setEditParentId(e.target.value)}
+                disabled={!canMutate}
+                className="form-input"
+                style={{
+                  padding: '8px',
+                  background: 'var(--bg-input)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '8px',
+                  color: 'var(--text-primary)',
+                  fontSize: '13px',
+                  outline: 'none',
+                  width: '100%'
+                }}
+              >
+                <option value="">No parent / Root task</option>
+                {unfilteredTasks.filter(t => t.id !== selectedTask.id).map((t) => (
+                  <option key={t.id} value={t.id}>{t.title}</option>
+                ))}
+              </select>
+            </div>
+
             {canMutate && (
               <button
                 type="submit"
@@ -1061,6 +1113,70 @@ export default function TasksTab({ project, role }) {
             )}
 
           </form>
+
+          {/* Task Hierarchy Section */}
+          {(selectedTask.parent || (selectedTask.subtasks && selectedTask.subtasks.length > 0)) && (
+            <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '20px' }}>
+              <h4 style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '12px' }}>
+                Task Hierarchy
+              </h4>
+
+              {selectedTask.parent && (
+                <div style={{ marginBottom: '12px' }}>
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Parent Task:</span>
+                  <div
+                    onClick={() => selectTaskForDetails(selectedTask.parent)}
+                    className="interactive-card"
+                    tabIndex={0}
+                    style={{
+                      padding: '8px 12px',
+                      background: 'var(--bg-input)',
+                      border: '1px solid var(--border-color)',
+                      borderRadius: '6px',
+                      fontSize: '13px',
+                      marginTop: '4px',
+                      cursor: 'pointer',
+                      display: 'inline-block'
+                    }}
+                  >
+                    {selectedTask.parent.title}
+                  </div>
+                </div>
+              )}
+
+              {selectedTask.subtasks && selectedTask.subtasks.length > 0 && (
+                <div>
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Direct Subtasks ({selectedTask.subtasks.length}):</span>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '6px' }}>
+                    {selectedTask.subtasks.map((sub) => (
+                      <div
+                        key={sub.id}
+                        onClick={() => selectTaskForDetails(sub)}
+                        className="interactive-card"
+                        tabIndex={0}
+                        style={{
+                          padding: '8px 12px',
+                          background: 'var(--bg-input)',
+                          border: '1px solid var(--border-color)',
+                          borderRadius: '6px',
+                          fontSize: '13px',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center'
+                        }}
+                      >
+                        <span>{sub.title}</span>
+                        <span style={{ fontSize: '10px', opacity: 0.8, padding: '2px 6px', borderRadius: '4px', background: 'var(--border-color)' }}>
+                          {sub.status.replace('_', ' ')}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Dependencies Relations Section */}
           <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '20px' }}>
@@ -1753,6 +1869,31 @@ export default function TasksTab({ project, role }) {
                     }}
                   />
                 </div>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <label style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Parent Task</label>
+                <select
+                  value={newParentId}
+                  onChange={(e) => setNewParentId(e.target.value)}
+                  disabled={creating}
+                  className="form-input"
+                  style={{
+                    padding: '10px',
+                    background: 'var(--bg-input)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '8px',
+                    color: 'var(--text-primary)',
+                    fontSize: '14px',
+                    outline: 'none',
+                    width: '100%'
+                  }}
+                >
+                  <option value="">No parent / Root task</option>
+                  {unfilteredTasks.map((t) => (
+                    <option key={t.id} value={t.id}>{t.title}</option>
+                  ))}
+                </select>
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '15px', marginTop: '10px' }}>

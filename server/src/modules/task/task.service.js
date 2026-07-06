@@ -105,7 +105,7 @@ export async function createTask(projectId, taskData, createdById) {
     throw error;
   }
 
-  const { title, description, priority, status, assigneeId, dueDate } = taskData;
+  const { title, description, priority, status, assigneeId, dueDate, parentId } = taskData;
 
   let parsedAssigneeId = null;
   if (assigneeId !== undefined && assigneeId !== null) {
@@ -134,9 +134,25 @@ export async function createTask(projectId, taskData, createdById) {
     }
   }
 
+  let parsedParentId = null;
+  if (parentId !== undefined && parentId !== null) {
+    parsedParentId = parseInt(parentId, 10);
+  }
+
   const parsedDueDate = dueDate ? new Date(dueDate) : null;
 
   const task = await prisma.$transaction(async (tx) => {
+    if (parsedParentId !== null) {
+      const parentTask = await tx.task.findFirst({
+        where: { id: parsedParentId, projectId }
+      });
+      if (!parentTask) {
+        const error = new Error('Parent task must be a valid task in this project.');
+        error.statusCode = 400;
+        throw error;
+      }
+    }
+
     const createdTask = await tx.task.create({
       data: {
         projectId,
@@ -146,11 +162,18 @@ export async function createTask(projectId, taskData, createdById) {
         status: status || 'TODO',
         assigneeId: parsedAssigneeId,
         dueDate: parsedDueDate,
-        createdById
+        createdById,
+        parentId: parsedParentId
       },
       include: {
         assignee: {
           select: { id: true, name: true, email: true }
+        },
+        parent: {
+          select: { id: true, title: true }
+        },
+        subtasks: {
+          select: { id: true, title: true, status: true, priority: true }
         }
       }
     });
@@ -216,6 +239,9 @@ export async function getTasksForProject(projectId, filters = {}) {
     include: {
       assignee: {
         select: { id: true, name: true, email: true }
+      },
+      parent: {
+        select: { id: true, title: true }
       }
     },
     orderBy: { createdAt: 'desc' }
@@ -238,6 +264,12 @@ export async function getTaskById(projectId, taskId) {
     include: {
       assignee: {
         select: { id: true, name: true, email: true }
+      },
+      parent: {
+        select: { id: true, title: true }
+      },
+      subtasks: {
+        select: { id: true, title: true, status: true, priority: true }
       },
       activityLogs: {
         include: {
@@ -382,6 +414,15 @@ export async function updateTask(projectId, taskId, updateData, actorUserId) {
     }
   }
 
+  let parsedParentId = undefined;
+  if (updateData.parentId !== undefined) {
+    if (updateData.parentId === null) {
+      parsedParentId = null;
+    } else {
+      parsedParentId = parseInt(updateData.parentId, 10);
+    }
+  }
+
   const parsedDueDate = updateData.dueDate !== undefined ? (updateData.dueDate ? new Date(updateData.dueDate) : null) : undefined;
 
   const changes = {};
@@ -403,17 +444,74 @@ export async function updateTask(projectId, taskId, updateData, actorUserId) {
   if (parsedDueDate !== undefined && ((parsedDueDate ? parsedDueDate.getTime() : null) !== (task.dueDate ? task.dueDate.getTime() : null))) {
     changes.dueDate = { before: task.dueDate ? task.dueDate.toISOString() : null, after: parsedDueDate ? parsedDueDate.toISOString() : null };
   }
+  if (parsedParentId !== undefined && parsedParentId !== task.parentId) {
+    changes.parentId = { before: task.parentId, after: parsedParentId };
+  }
 
   if (Object.keys(changes).length === 0) {
     const existingTask = await prisma.task.findUnique({
       where: { id: taskId },
-      include: { assignee: { select: { id: true, name: true, email: true } } }
+      include: {
+        assignee: { select: { id: true, name: true, email: true } },
+        parent: { select: { id: true, title: true } },
+        subtasks: { select: { id: true, title: true, status: true, priority: true } }
+      }
     });
     const warnings = await getTaskWarnings(existingTask.id);
     return { ...existingTask, warnings };
   }
 
   const updatedTask = await prisma.$transaction(async (tx) => {
+    if (parsedParentId !== undefined && parsedParentId !== null) {
+      if (parsedParentId === taskId) {
+        const error = new Error('A task cannot be its own parent.');
+        error.statusCode = 400;
+        throw error;
+      }
+
+      const parentTask = await tx.task.findFirst({
+        where: { id: parsedParentId, projectId }
+      });
+      if (!parentTask) {
+        const error = new Error('Parent task must be a valid task in this project.');
+        error.statusCode = 400;
+        throw error;
+      }
+
+      // Hierarchy-cycle prevention: start from candidate parent, follow parentId upwards.
+      const visited = new Set();
+      let currentId = parsedParentId;
+
+      while (currentId !== null) {
+        if (currentId === taskId) {
+          const error = new Error('Setting this parent task would introduce a hierarchy cycle.');
+          error.statusCode = 400;
+          throw error;
+        }
+
+        if (visited.has(currentId)) {
+          const error = new Error('Setting this parent task would introduce a hierarchy cycle.');
+          error.statusCode = 400;
+          throw error;
+        }
+
+        visited.add(currentId);
+
+        const currentTask = await tx.task.findFirst({
+          where: { id: currentId, projectId },
+          select: { id: true, parentId: true }
+        });
+
+        if (!currentTask) {
+          const error = new Error('Parent task must be a valid task in this project.');
+          error.statusCode = 400;
+          throw error;
+        }
+
+        currentId = currentTask.parentId;
+      }
+    }
+
     const t = await tx.task.update({
       where: { id: taskId },
       data: {
@@ -422,10 +520,13 @@ export async function updateTask(projectId, taskId, updateData, actorUserId) {
         priority: updateData.priority || undefined,
         status: updateData.status || undefined,
         assigneeId: parsedAssigneeId !== undefined ? parsedAssigneeId : undefined,
-        dueDate: parsedDueDate !== undefined ? parsedDueDate : undefined
+        dueDate: parsedDueDate !== undefined ? parsedDueDate : undefined,
+        parentId: parsedParentId !== undefined ? parsedParentId : undefined
       },
       include: {
-        assignee: { select: { id: true, name: true, email: true } }
+        assignee: { select: { id: true, name: true, email: true } },
+        parent: { select: { id: true, title: true } },
+        subtasks: { select: { id: true, title: true, status: true, priority: true } }
       }
     });
 
