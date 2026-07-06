@@ -4,7 +4,13 @@ export async function create(req, res, next) {
   try {
     const projectId = parseInt(req.params.projectId, 10);
     const taskId = parseInt(req.params.taskId, 10);
-    const comment = await commentService.createComment(projectId, taskId, req.body.content, req.user.id);
+    const comment = await commentService.createComment(
+      projectId,
+      taskId,
+      req.body.content,
+      req.user.id,
+      req.body.mentionedUserIds
+    );
     return res.status(201).json({
       success: true,
       comment

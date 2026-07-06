@@ -39,6 +39,7 @@ model User {
   notifications      Notification[]
   preference UserPreference?
   projectViewPreferences ProjectViewPreference[]
+  commentMentions    CommentMention[]
 }
 
 enum ProjectStatus {
@@ -164,6 +165,7 @@ model Comment {
   editedAt  DateTime?
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
+  mentions  CommentMention[]
 }
 
 model Attachment {
@@ -256,6 +258,18 @@ enum NotificationEventType {
   TASK_STATUS_CHANGED
   RCA_SUBMITTED
   RCA_REVIEW_DECIDED
+  TASK_COMMENT_MENTION
+}
+
+model CommentMention {
+  id        Int      @id @default(autoincrement())
+  commentId Int
+  comment   Comment  @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  createdAt DateTime @default(now())
+
+  @@unique([commentId, userId])
 }
 
 enum OutboxProcessingState {
