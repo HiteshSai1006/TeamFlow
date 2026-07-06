@@ -76,7 +76,7 @@ async function runNotificationTests() {
     }
 
     await prisma.notification.deleteMany({ where: { recipientId: { in: userIds } } });
-    await prisma.userNotificationPreference.deleteMany({ where: { userId: { in: userIds } } });
+    await prisma.userPreference.deleteMany({ where: { userId: { in: userIds } } });
     await prisma.eventOutbox.deleteMany({ where: { actorId: { in: userIds } } });
     await prisma.projectMember.deleteMany({ where: { userId: { in: userIds } } });
     await prisma.user.deleteMany({ where: { id: { in: userIds } } });
