@@ -1693,21 +1693,8 @@ export default function TasksTab({ project, role }) {
 
       {/* Task Creation Modal */}
       {showCreateModal && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0,0,0,0.7)',
-          backdropFilter: 'blur(8px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000,
-          padding: '20px'
-        }}>
-          <div className="glass-panel" style={{ width: '100%', maxWidth: '500px', padding: '30px' }}>
+        <div className="modal-backdrop" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+          <div className="modal-panel" style={{ width: '100%', maxWidth: '500px', padding: '30px' }}>
             
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
               <h3 style={{ fontSize: '18px', fontFamily: 'var(--font-display)', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -1738,15 +1725,7 @@ export default function TasksTab({ project, role }) {
                   placeholder="e.g. Inspect firewalls"
                   required
                   disabled={creating}
-                  style={{
-                    padding: '10px 12px',
-                    background: 'rgba(255,255,255,0.03)',
-                    border: '1px solid var(--border-color)',
-                    borderRadius: '8px',
-                    color: 'var(--text-primary)',
-                    fontSize: '14px',
-                    outline: 'none'
-                  }}
+                  className="form-input"
                 />
               </div>
 
@@ -1757,16 +1736,10 @@ export default function TasksTab({ project, role }) {
                   onChange={(e) => setNewDesc(e.target.value)}
                   placeholder="Detailed task steps..."
                   disabled={creating}
+                  className="form-input"
                   style={{
-                    padding: '10px 12px',
-                    background: 'rgba(255,255,255,0.03)',
-                    border: '1px solid var(--border-color)',
-                    borderRadius: '8px',
-                    color: 'var(--text-primary)',
-                    fontSize: '14px',
                     height: '80px',
-                    resize: 'none',
-                    outline: 'none'
+                    resize: 'none'
                   }}
                 />
               </div>
@@ -1778,15 +1751,7 @@ export default function TasksTab({ project, role }) {
                     value={newPriority}
                     onChange={(e) => setNewPriority(e.target.value)}
                     disabled={creating}
-                    style={{
-                      padding: '10px',
-                      background: 'rgba(255,255,255,0.03)',
-                      border: '1px solid var(--border-color)',
-                      borderRadius: '8px',
-                      color: 'var(--text-primary)',
-                      fontSize: '14px',
-                      outline: 'none'
-                    }}
+                    className="form-input"
                   >
                     <option value="LOW">LOW</option>
                     <option value="MEDIUM">MEDIUM</option>
@@ -1801,15 +1766,7 @@ export default function TasksTab({ project, role }) {
                     value={newStatus}
                     onChange={(e) => setNewStatus(e.target.value)}
                     disabled={creating}
-                    style={{
-                      padding: '10px',
-                      background: 'rgba(255,255,255,0.03)',
-                      border: '1px solid var(--border-color)',
-                      borderRadius: '8px',
-                      color: 'var(--text-primary)',
-                      fontSize: '14px',
-                      outline: 'none'
-                    }}
+                    className="form-input"
                   >
                     <option value="TODO">TODO</option>
                     <option value="IN_PROGRESS">IN PROGRESS</option>
@@ -1827,15 +1784,7 @@ export default function TasksTab({ project, role }) {
                       value={newAssigneeId}
                       onChange={(e) => setNewAssigneeId(e.target.value)}
                       disabled={creating}
-                      style={{
-                        padding: '10px',
-                        background: 'rgba(255,255,255,0.03)',
-                        border: '1px solid var(--border-color)',
-                        borderRadius: '8px',
-                        color: 'var(--text-primary)',
-                        fontSize: '14px',
-                        outline: 'none'
-                      }}
+                      className="form-input"
                     >
                       <option value="">Unassigned</option>
                       {assignableMembers.map((m) => (
@@ -1858,15 +1807,7 @@ export default function TasksTab({ project, role }) {
                     value={newDueDate}
                     onChange={(e) => setNewDueDate(e.target.value)}
                     disabled={creating}
-                    style={{
-                      padding: '8px 10px',
-                      background: 'rgba(255,255,255,0.03)',
-                      border: '1px solid var(--border-color)',
-                      borderRadius: '8px',
-                      color: 'var(--text-primary)',
-                      fontSize: '14px',
-                      outline: 'none'
-                    }}
+                    className="form-input"
                   />
                 </div>
               </div>
@@ -1878,16 +1819,6 @@ export default function TasksTab({ project, role }) {
                   onChange={(e) => setNewParentId(e.target.value)}
                   disabled={creating}
                   className="form-input"
-                  style={{
-                    padding: '10px',
-                    background: 'var(--bg-input)',
-                    border: '1px solid var(--border-color)',
-                    borderRadius: '8px',
-                    color: 'var(--text-primary)',
-                    fontSize: '14px',
-                    outline: 'none',
-                    width: '100%'
-                  }}
                 >
                   <option value="">No parent / Root task</option>
                   {unfilteredTasks.map((t) => (

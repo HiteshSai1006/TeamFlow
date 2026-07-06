@@ -420,6 +420,14 @@ select {
   z-index: 1100;
 }
 
+.modal-panel {
+  background: var(--bg-main);
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.3);
+  position: relative;
+}
+
 /* Form Input Consistency */
 .form-input {
   width: 100%;
