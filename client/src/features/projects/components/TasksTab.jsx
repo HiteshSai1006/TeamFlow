@@ -54,6 +54,8 @@ export default function TasksTab({ project, role }) {
   const [newCommentText, setNewCommentText] = useState('');
   const [editingCommentId, setEditingCommentId] = useState(null);
   const [editingCommentText, setEditingCommentText] = useState('');
+  const [mentionSearch, setMentionSearch] = useState(null);
+  const [mentionIndex, setMentionIndex] = useState(-1);
   const [currentUser, setCurrentUser] = useState(null);
 
   // Attachments State
@@ -314,11 +316,23 @@ export default function TasksTab({ project, role }) {
     e.preventDefault();
     if (!newCommentText.trim()) return;
 
+    const deriveMentionedUserIds = (text) => {
+      const regex = /@\[[^\]]+\]\(user:(\d+)\)/g;
+      const ids = [];
+      let match;
+      while ((match = regex.exec(text)) !== null) {
+        ids.push(parseInt(match[1], 10));
+      }
+      return Array.from(new Set(ids));
+    };
+
+    const mentionedUserIds = deriveMentionedUserIds(newCommentText);
+
     try {
       const res = await fetch(`/api/projects/${project.id}/tasks/${selectedTask.id}/comments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: newCommentText }),
+        body: JSON.stringify({ content: newCommentText, mentionedUserIds }),
         credentials: 'include'
       });
       const data = await res.json();
@@ -327,9 +341,45 @@ export default function TasksTab({ project, role }) {
       }
       setComments((prev) => [...prev, data.comment]);
       setNewCommentText('');
+      setMentionSearch(null);
+      setMentionIndex(-1);
     } catch (err) {
       alert(err.message);
     }
+  };
+
+  const handleTextareaChange = (e) => {
+    const val = e.target.value;
+    setNewCommentText(val);
+
+    const selectionEnd = e.target.selectionEnd;
+    const textBeforeCursor = val.slice(0, selectionEnd);
+
+    const lastAt = textBeforeCursor.lastIndexOf('@');
+    if (lastAt !== -1) {
+      const textAfterAt = textBeforeCursor.slice(lastAt + 1);
+      if (!textAfterAt.includes(' ') && !textAfterAt.includes('\n')) {
+        setMentionSearch(textAfterAt);
+        setMentionIndex(lastAt);
+        return;
+      }
+    }
+
+    setMentionSearch(null);
+    setMentionIndex(-1);
+  };
+
+  const handleSelectMention = (member) => {
+    if (mentionIndex === -1) return;
+    const textBeforeAt = newCommentText.slice(0, mentionIndex);
+    const textAfterCursor = newCommentText.slice(mentionIndex + 1 + mentionSearch.length);
+
+    const token = `@[${member.user.name}](user:${member.userId}) `;
+    const newText = textBeforeAt + token + textAfterCursor;
+
+    setNewCommentText(newText);
+    setMentionSearch(null);
+    setMentionIndex(-1);
   };
 
   const handleUpdateComment = async (commentId) => {
@@ -1261,7 +1311,7 @@ export default function TasksTab({ project, role }) {
                         </div>
                       ) : (
                         <p style={{ fontSize: '12px', color: 'var(--text-primary)', whiteSpace: 'pre-wrap', lineHeight: '1.4', margin: 0 }}>
-                          {c.content}
+                          {renderCommentContent(c.content)}
                         </p>
                       )}
 
@@ -1295,11 +1345,11 @@ export default function TasksTab({ project, role }) {
 
             {/* Post Comment Input */}
             {canMutate && (
-              <form onSubmit={handleAddComment} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <form onSubmit={handleAddComment} style={{ display: 'flex', flexDirection: 'column', gap: '8px', position: 'relative' }}>
                 <textarea
                   value={newCommentText}
-                  onChange={(e) => setNewCommentText(e.target.value)}
-                  placeholder="Post comment..."
+                  onChange={handleTextareaChange}
+                  placeholder="Post comment... Use @ to mention members"
                   required
                   style={{
                     width: '100%',
@@ -1314,6 +1364,58 @@ export default function TasksTab({ project, role }) {
                     outline: 'none'
                   }}
                 />
+
+                {mentionSearch !== null && members.filter(m => {
+                  const name = m.user?.name || '';
+                  const email = m.user?.email || '';
+                  return name.toLowerCase().includes(mentionSearch.toLowerCase()) ||
+                         email.toLowerCase().includes(mentionSearch.toLowerCase());
+                }).length > 0 && (
+                  <div style={{
+                    background: 'var(--bg-card)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+                    maxHeight: '150px',
+                    overflowY: 'auto',
+                    marginTop: '-4px',
+                    padding: '4px 0',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    zIndex: 10
+                  }}>
+                    {members.filter(m => {
+                      const name = m.user?.name || '';
+                      const email = m.user?.email || '';
+                      return name.toLowerCase().includes(mentionSearch.toLowerCase()) ||
+                             email.toLowerCase().includes(mentionSearch.toLowerCase());
+                    }).map(m => (
+                      <button
+                        key={m.userId}
+                        type="button"
+                        onClick={() => handleSelectMention(m)}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: 'var(--text-primary)',
+                          padding: '8px 12px',
+                          textAlign: 'left',
+                          fontSize: '12px',
+                          cursor: 'pointer',
+                          width: '100%',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '2px'
+                        }}
+                        className="mention-item"
+                      >
+                        <span style={{ fontWeight: 600 }}>{m.user?.name}</span>
+                        <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{m.user?.email}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
                 <button
                   type="submit"
                   disabled={!newCommentText.trim()}
@@ -1680,4 +1782,33 @@ export default function TasksTab({ project, role }) {
 
     </div>
   );
+}
+
+function renderCommentContent(content) {
+  if (!content) return '';
+  const regex = /(@\[[^\]]+\]\(user:\d+\))/g;
+  const parts = content.split(regex);
+  return parts.map((part, index) => {
+    const match = part.match(/@\[([^\]]+)\]\(user:(\d+)\)/);
+    if (match) {
+      const displayName = match[1];
+      return (
+        <span
+          key={index}
+          style={{
+            background: 'rgba(59, 130, 246, 0.15)',
+            color: '#3b82f6',
+            padding: '2px 6px',
+            borderRadius: '4px',
+            fontWeight: 500,
+            display: 'inline',
+            margin: '0 2px'
+          }}
+        >
+          @{displayName}
+        </span>
+      );
+    }
+    return part;
+  });
 }

@@ -388,3 +388,11 @@ select {
   flex-direction: column;
   overflow: hidden;
 }
+
+.mention-item:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+
+[data-theme="dark"] .mention-item:hover {
+  background: rgba(255, 255, 255, 0.1) !important;
+}

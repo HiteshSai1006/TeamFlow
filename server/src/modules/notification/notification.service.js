@@ -26,6 +26,11 @@ export function calculateRecipients(eventType, metadata, actorId) {
     if (Array.isArray(currentRoundReviewerIds)) {
       currentRoundReviewerIds.forEach(id => recipients.add(Number(id)));
     }
+  } else if (eventType === 'TASK_COMMENT_MENTION') {
+    const { mentionedUserIds } = metadata;
+    if (Array.isArray(mentionedUserIds)) {
+      mentionedUserIds.forEach(id => recipients.add(Number(id)));
+    }
   }
 
   // Actor exclusion: user who triggered the event should not receive a notification
@@ -63,6 +68,12 @@ export function generateNotificationContent(eventType, metadata) {
     return {
       title: 'RCA Review Decision Added',
       message: `RCA "${rcaTitle}" review decision: ${decision} (Round ${reviewRound}).`
+    };
+  } else if (eventType === 'TASK_COMMENT_MENTION') {
+    const { taskTitle, authorName } = metadata;
+    return {
+      title: 'Mentioned in Comment',
+      message: `${authorName} mentioned you in a comment on task "${taskTitle}".`
     };
   }
   return { title: 'Notification', message: 'Activity alert.' };

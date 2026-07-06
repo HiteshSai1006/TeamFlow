@@ -5,7 +5,7 @@ const MAX_COMMENT_LENGTH = 5000;
 /**
  * Creates a comment on a task.
  */
-export async function createComment(projectId, taskId, content, authorId) {
+export async function createComment(projectId, taskId, content, authorId, mentionedUserIds = []) {
   if (!content || !content.trim()) {
     const error = new Error('Comment content cannot be empty.');
     error.statusCode = 400;
@@ -46,17 +46,82 @@ export async function createComment(projectId, taskId, content, authorId) {
     throw error;
   }
 
-  return await prisma.comment.create({
-    data: {
-      taskId,
-      authorId,
-      content: content.trim()
-    },
-    include: {
-      author: {
-        select: { id: true, name: true, email: true }
-      }
+  // Mention validation:
+  if (mentionedUserIds !== undefined && !Array.isArray(mentionedUserIds)) {
+    const error = new Error('mentionedUserIds must be an array.');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const rawIds = mentionedUserIds || [];
+  for (const id of rawIds) {
+    if (typeof id !== 'number' || !Number.isInteger(id)) {
+      const error = new Error('Every mentioned user ID must be an integer.');
+      error.statusCode = 400;
+      throw error;
     }
+  }
+
+  const uniqueIds = Array.from(new Set(rawIds));
+  for (const uid of uniqueIds) {
+    const member = await prisma.projectMember.findUnique({
+      where: { projectId_userId: { projectId, userId: uid } }
+    });
+    if (!member) {
+      const error = new Error(`User with ID ${uid} is not a member of this project.`);
+      error.statusCode = 400;
+      throw error;
+    }
+  }
+
+  const nonSelfIds = uniqueIds.filter(uid => uid !== authorId);
+
+  return await prisma.$transaction(async (tx) => {
+    const authorUser = await tx.user.findUnique({
+      where: { id: authorId },
+      select: { name: true }
+    });
+
+    const comment = await tx.comment.create({
+      data: {
+        taskId,
+        authorId,
+        content: content.trim()
+      },
+      include: {
+        author: {
+          select: { id: true, name: true, email: true }
+        }
+      }
+    });
+
+    if (nonSelfIds.length > 0) {
+      await tx.commentMention.createMany({
+        data: nonSelfIds.map(uid => ({
+          commentId: comment.id,
+          userId: uid
+        }))
+      });
+
+      await tx.eventOutbox.create({
+        data: {
+          eventType: 'TASK_COMMENT_MENTION',
+          entityId: comment.id,
+          actorId: authorId,
+          metadata: {
+            commentId: comment.id,
+            taskId,
+            taskTitle: task.title,
+            authorId,
+            authorName: authorUser ? authorUser.name : 'Unknown User',
+            mentionedUserIds: nonSelfIds
+          },
+          processingState: 'PENDING'
+        }
+      });
+    }
+
+    return comment;
   });
 }
 
