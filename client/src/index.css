@@ -333,6 +333,9 @@ select {
   grid-template-columns: 1fr;
   gap: 30px;
 }
+.tasks-layout-grid > * {
+  min-width: 0;
+}
 @media (min-width: 1025px) {
   .tasks-layout-grid.has-selected {
     grid-template-columns: 1fr 480px;
