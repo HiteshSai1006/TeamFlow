@@ -18,131 +18,82 @@ TeamFlow enables teams to create and manage projects, coordinate tasks, attach s
 
 ## System Architecture
 
-TeamFlow follows a **modular monolith architecture**. The React frontend communicates with a Node.js and Express REST API. Business rules are enforced in the backend before Prisma accesses PostgreSQL.
+TeamFlow is structured as a **modular monolith**. The system distinguishes between synchronous client request processing and asynchronous, outbox-driven background event execution.
 
-### Architecture Overview
-A visual system architecture diagram is available at [system-architecture.png](docs/diagrams/system-architecture.png). For a complete breakdown of design boundaries, transactional boundaries, and architectural trade-offs, see the full [Architecture and Design Document](docs/architecture-and-design.md).
+### Request Processing & Event Flow
 
 ```mermaid
 flowchart TB
-    USER["User"]
+    %% Synchronous Request Path
+    subgraph SYNC_FLOW ["Synchronous HTTP Request Path"]
+        USER["👤 User"]
+        FRONTEND["React + Vite Frontend\n(Kanban, Calendar, List Views)"]
+        API_GW["Express API Router"]
+        AUTH_MW["Authentication & RBAC Middleware"]
 
-    subgraph FRONTEND["Frontend - React + Vite"]
-        UI["Projects * Tasks * RCA * Reports"]
-        VIEWS["Kanban * Calendar * List"]
-        UX["Notifications * Light/Dark Theme"]
+        subgraph DOMAIN_MODULES ["Node.js + Express Domain Modules"]
+            AUTH["Authentication"]
+            PROJ["Projects"]
+            TASKS["Tasks"]
+            COMMENTS["Comments"]
+            ATTACH["Attachments"]
+            RCA["RCA (Root-Cause Analysis)"]
+            REVIEWS["Reviews"]
+            REPORTS["Reports"]
+            NOTIF["Notifications"]
+            PREFS["Preferences"]
+        end
+
+        subgraph RULES ["Business Rules & Validation"]
+            VAL_RBAC["RBAC & Membership Verification"]
+            VAL_STATE["Task Status Transitions Matrix"]
+            VAL_CYCLE["Dependency Cycle Detection (BFS)"]
+            VAL_RCA["RCA Multi-Round Review Constraints"]
+        end
+
+        subgraph DATA_LAYER ["Data Layer"]
+            PRISMA["Prisma ORM"]
+            DB[("PostgreSQL 15")]
+            FILES[("Local File Storage\n(uploads/)")]
+        end
+
+        USER -->|"User Interaction"| FRONTEND
+        FRONTEND -->|"HTTP / REST API"| API_GW
+        API_GW --> AUTH_MW
+        AUTH_MW --> DOMAIN_MODULES
+        DOMAIN_MODULES --> RULES
+        RULES --> PRISMA
+        PRISMA --> DB
+        DOMAIN_MODULES -.->|"File Uploads"| FILES
     end
 
-    subgraph BACKEND["Backend - Node.js + Express"]
-        API["REST API"]
-        MODULES["Auth * Projects * Tasks * Comments"]
-        MORE["Attachments * RCA * Reviews * Reports"]
-        PREFS["Notifications * Preferences"]
+    %% Asynchronous Pipeline
+    subgraph ASYNC_PIPELINE ["Asynchronous Notification Pipeline"]
+        OUTBOX_TABLE[("EventOutbox Table\n(State: PENDING)")]
+        WORKER["Background Notification Worker\n(SKIP LOCKED Processing)"]
+        NOTIF_TABLE[("Notification Table\n(Deduplication Enforced)")]
+        EMAIL_WORKER["Background Email Worker\n(SKIP LOCKED Processing)"]
+        MOCK_EMAIL["Simulated Email Dispatch\n(mock_emails.log / console)"]
+
+        DB -.->|"Transaction Write"| OUTBOX_TABLE
+        OUTBOX_TABLE -->|"Claim Events"| WORKER
+        WORKER -->|"Fan-Out Notifications"| NOTIF_TABLE
+        NOTIF_TABLE -->|"Claim Notifications"| EMAIL_WORKER
+        EMAIL_WORKER -->|"Check User Preference"| MOCK_EMAIL
     end
-
-    subgraph RULES["Business Rules"]
-        RBAC["Role-Based Access Control"]
-        TASK["Task Lifecycle State Machine"]
-        DEP["Dependency Cycle Prevention"]
-        RCA["RCA & Review Workflow"]
-        DEDUP["Notification Deduplication"]
-        AUDIT["Activity Logging"]
-    end
-
-    subgraph DATA["Data Layer"]
-        PRISMA["Prisma ORM"]
-        DB[("PostgreSQL")]
-        FILES[("Local File Storage")]
-    end
-
-    subgraph NOTIFICATIONS["Notification Pipeline"]
-        EVENT["Event Triggered"]
-        PERSIST["Persist Event"]
-        DEDUPE["Suppress Duplicate"]
-        DELIVERY["In-App Alert + Email Worker"]
-
-        EVENT --> PERSIST --> DEDUPE --> DELIVERY
-    end
-
-    USER --> FRONTEND
-    FRONTEND -->|"HTTP / REST API"| BACKEND
-    BACKEND --> RULES
-    RULES --> PRISMA
-    PRISMA --> DB
-    BACKEND --> FILES
-
-    BACKEND --> EVENT
 ```
-
-### Request Flow
-
-```mermaid
-flowchart LR
-    A["User Action"] --> B["React Component"]
-    B --> C["REST API"]
-    C --> D["Authentication"]
-    D --> E["Project Access Check"]
-    E --> F["Business Rule Validation"]
-    F --> G["Service Layer"]
-    G --> H["Prisma"]
-    H --> I[("PostgreSQL")]
-    I --> J["API Response"]
-    J --> K["UI Updates"]
-```
-
-### Secondary Event Flow
-```text
-BUSINESS ACTION
-  |
-  v
-EVENT OUTBOX
-  |
-  v
-NOTIFICATION WORKER
-  |
-  +----------------------+
-  |                      |
-  v                      v
-IN-APP NOTIFICATION   MOCK EMAIL DELIVERY
-                           |
-                           v
-                         RETRY
-```
-
-This architecture enables the application to separate presentation, API handling, business logic, persistence, and asynchronous notification concerns while remaining deployable as a single cohesive system.
 
 ---
 
 ## Domain Model and Data Design
-The core domain entities include:
-- User
-- Project
-- ProjectMember
-- Task
-- TaskRelation
-- Comment
-- Attachment
-- RCA
-- Review
-- EventOutbox
-- Notification
-- UserPreference
-- ProjectViewPreference
-- CommentMention
-- ActivityLog
+The persistent data model is defined in the [server/prisma/schema.prisma](server/prisma/schema.prisma) file, with database schema evolution captured through the migration history in `server/prisma/migrations/`.
 
-### Domain Model Overview
-The complete Entity Relationship Diagram (ERD) is documented at [erd-domain-model.png](docs/diagrams/erd-domain-model.png). It represents TeamFlow's PostgreSQL model, highlighting project-scoped boundaries for hierarchies and dependencies. For detailed entity descriptions and constraints, refer to [Architecture and Design Document](docs/architecture-and-design.md).
+### Entity Relationship Diagram (ERD)
 
----
-
-## Entity Relationship Diagram
-
-The ERD below represents TeamFlow's actual PostgreSQL data model. It includes project membership, hierarchical tasks, dependencies, comments and mentions, attachments, RCA investigations and reviews, the transactional notification outbox, and persisted user preferences.
+The ERD below represents TeamFlow's actual PostgreSQL data model, tracking key fields, relationships, and constraints:
 
 ```mermaid
 erDiagram
-
     User {
         int id PK
         string name
@@ -174,14 +125,14 @@ erDiagram
     Task {
         int id PK
         int projectId FK
+        int assigneeId FK
+        int createdById FK
+        int parentId FK
         string title
         string description
         TaskStatus status
         TaskPriority priority
-        int assigneeId FK
         datetime dueDate
-        int createdById FK
-        int parentId FK
         datetime createdAt
         datetime updatedAt
     }
@@ -234,12 +185,12 @@ erDiagram
     RCA {
         int id PK
         int projectId FK
+        int createdById FK
         string title
         string description
         RCASeverity severity
         RCAStatus status
         int reviewRound
-        int createdById FK
         datetime createdAt
         datetime updatedAt
     }
@@ -266,9 +217,9 @@ erDiagram
 
     EventOutbox {
         int id PK
+        int actorId FK
         NotificationEventType eventType
         int entityId
-        int actorId FK
         json metadata
         OutboxProcessingState processingState
         int processingAttempts
@@ -295,7 +246,7 @@ erDiagram
 
     UserPreference {
         int id PK
-        int userId FK
+        int userId UK
         ThemeMode theme
         boolean emailOptOut
         datetime createdAt
@@ -311,65 +262,121 @@ erDiagram
         datetime updatedAt
     }
 
-    User ||--o{ Project : creates
-    User ||--o{ ProjectMember : joins
-    Project ||--o{ ProjectMember : contains
+    User ||--o{ Project : "creates (createdById)"
+    User ||--o{ ProjectMember : "joins (userId)"
+    Project ||--o{ ProjectMember : "contains (projectId)"
+    ProjectMember }|--|| Project : "member of"
+    ProjectMember }|--|| User : "linked user"
 
-    Project ||--o{ Task : contains
-    User ||--o{ Task : creates
-    User ||--o{ Task : assigned
+    Project ||--o{ Task : "holds"
+    User ||--o{ Task : "creates (createdById)"
+    User ||--o{ Task : "assigned (assigneeId)"
+    Task o|--o{ Task : "self-reference (parentId / subtasks)"
 
-    Task o|--o{ Task : parent_of
+    Task ||--o{ TaskRelation : "source of dependency (sourceTaskId)"
+    Task ||--o{ TaskRelation : "target of dependency (targetTaskId)"
 
-    Task ||--o{ TaskRelation : source
-    Task ||--o{ TaskRelation : target
+    Project ||--o{ ActivityLog : "tracks"
+    Task ||--o{ ActivityLog : "logs"
+    User ||--o{ ActivityLog : "triggers (actorId)"
 
-    Project ||--o{ ActivityLog : records
-    Task ||--o{ ActivityLog : generates
-    User ||--o{ ActivityLog : performs
+    Task ||--o{ Comment : "contains"
+    User ||--o{ Comment : "writes (authorId)"
+    Comment ||--o{ CommentMention : "mentions"
+    User ||--o{ CommentMention : "tagged (userId)"
 
-    Task ||--o{ Comment : has
-    User ||--o{ Comment : writes
+    Task ||--o{ Attachment : "holds"
+    User ||--o{ Attachment : "uploads (uploadedById)"
 
-    Comment ||--o{ CommentMention : contains
-    User ||--o{ CommentMention : mentioned
+    Project ||--o{ RCA : "contains"
+    User ||--o{ RCA : "creates (createdById)"
+    RCA ||--o{ RCASection : "contains"
+    RCA ||--o{ Review : "receives"
+    User ||--o{ Review : "judges (reviewerId)"
 
-    Task ||--o{ Attachment : has
-    User ||--o{ Attachment : uploads
+    User ||--o{ EventOutbox : "acts (actorId)"
+    EventOutbox ||--o{ Notification : "fanned out to"
+    User ||--o{ Notification : "receives (recipientId)"
 
-    Project ||--o{ RCA : contains
-    User ||--o{ RCA : creates
-
-    RCA ||--o{ RCASection : contains
-    RCA ||--o{ Review : receives
-    User ||--o{ Review : performs
-
-    User ||--o{ EventOutbox : triggers
-    EventOutbox ||--o{ Notification : produces
-    User ||--o{ Notification : receives
-
-    User ||--o| UserPreference : has
-
-    User ||--o{ ProjectViewPreference : owns
-    Project ||--o{ ProjectViewPreference : stores
+    User ||--o| UserPreference : "has"
+    User ||--o{ ProjectViewPreference : "sets"
+    Project ||--o{ ProjectViewPreference : "stores"
 ```
+
+*HealthCheck is an infrastructure-support model and is intentionally excluded from the core domain ERD.*
 
 ---
 
-## Service Interaction Overview
-A typical request in TeamFlow follows this flow:
-1. The client sends a request to the Express API.
-2. Authentication and project-access middleware validate the request context.
-3. A domain service executes the relevant business logic.
-4. Prisma persists the resulting state in PostgreSQL.
-5. Important actions emit events to the outbox for downstream processing.
-6. A background worker processes those events to generate notifications and related artifacts.
+## Service Interaction Flow
+
+The interaction sequence details how user requests are parsed and validated synchronously, and how outbox messages are decoupled into the asynchronous background worker loop.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as 👤 User
+    participant UI as React Component
+    participant API as Express API Router
+    participant MW as Authentication / RBAC Middleware
+    participant Service as Domain Service
+    participant DB as PostgreSQL 15 (via Prisma)
+    participant Worker as Background Notification Worker
+    participant EmailWorker as Background Email Worker
+
+    %% Synchronous Request
+    User->>UI: Trigger Action (e.g., Change Task Status)
+    UI->>API: HTTP Request (JWT Cookie)
+    API->>MW: Run Authentication & Project Access Validation
+    MW->>API: Context Validated (User Role Approved)
+    API->>Service: Execute Request Logic (updateTaskStatus)
+    Service->>Service: Validate Business Rules (Task Status Transition Matrix)
+
+    rect rgb(240, 248, 255)
+        note right of Service: Prisma Transaction Block
+        Service->>DB: Update Task status
+        Service->>DB: Persist ActivityLog row
+        Service->>DB: Persist EventOutbox row (State: PENDING)
+        DB-->>Service: Transaction Confirmed
+    end
+
+    Service-->>API: Task Updated Output
+    API-->>UI: HTTP JSON Response (Success)
+    UI-->>User: React State Update (UI Refreshed)
+
+    %% Asynchronous Processing Loop
+    rect rgb(255, 240, 245)
+        note over Worker, DB: Background Event Processing Loop (Every 3s)
+        Worker->>DB: Query PENDING events (SELECT FOR UPDATE SKIP LOCKED)
+        DB-->>Worker: Staged Event rows (State -> PROCESSING)
+        Worker->>Worker: Resolve Recipients & Generate dedupKey
+        Worker->>DB: Persist unique Notifications & mark outbox PROCESSED
+        DB-->>Worker: Write complete
+    end
+
+    rect rgb(245, 255, 250)
+        note over EmailWorker, DB: Background Email Dispatch Loop (Every 3s)
+        EmailWorker->>DB: Query PENDING notifications (SELECT FOR UPDATE SKIP LOCKED)
+        DB-->>EmailWorker: Staged Notification rows
+        EmailWorker->>DB: Check UserPreferences for emailOptOut
+        DB-->>EmailWorker: Preference settings
+        alt User opted out
+            EmailWorker->>DB: Set EmailState to SKIPPED_OPT_OUT
+        else User opted in
+            EmailWorker->>EmailWorker: Dispatch to simulated email transport
+            alt Dispatch success
+                EmailWorker->>DB: Set EmailState to SENT
+            else Dispatch fail
+                EmailWorker->>DB: Increment emailAttempts (Retry up to 3 times)
+            end
+        end
+    end
+```
 
 ---
 
 ## Architectural and Design Decisions
 The implementation reflects a number of deliberate design choices:
-- A modular monolith architecture was selected to balance maintainability, clarity, and deployment simplicity.
+- A **modular monolith** architecture was selected to balance maintainability, clarity, and deployment simplicity.
 - PostgreSQL and the generated Prisma Client with schema-driven database access are used to provide reliable relational data handling.
 - An event-outbox pattern was adopted to support dependable notification processing.
 - Task hierarchy and dependency rules are project-scoped and validated at the service layer, backed by database constraints.
@@ -465,7 +472,7 @@ Further discussion of these decisions is available in the [Architecture and Desi
 ---
 
 ## Database Schema and Migrations
-The application schema is defined in [schema.prisma](file:///D:/Projects/New%20folder/server/prisma/schema.prisma), and the migration history is maintained in the `server/prisma/migrations/` directory.
+The application schema is defined in [server/prisma/schema.prisma](server/prisma/schema.prisma), and the migration history is maintained in the `server/prisma/migrations/` directory.
 
 Currently, there are **13 database migrations** applied chronologically to establish the schema:
 1. `20260705000000_init_auth`
