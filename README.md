@@ -129,7 +129,7 @@ The persistent data model is defined in server/prisma/schema.prisma, with schema
 The ERD below represents TeamFlow's actual PostgreSQL data model. It includes project membership, hierarchical tasks, dependencies, comments and mentions, attachments, RCA investigations and reviews, the transactional notification outbox, and persisted user preferences.
 
 ```mermaid
-ER-Diagram
+erDiagram
 
     User {
         int id PK
