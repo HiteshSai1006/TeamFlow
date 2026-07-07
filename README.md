@@ -15,6 +15,7 @@ This repository presents a complete implementation of the TeamFlow system, inclu
 TeamFlow enables teams to create and manage projects, coordinate tasks, attach supporting files, maintain task hierarchies and dependencies, and record structured RCA workflows for review and approval. The application demonstrates practical use of modern web-development patterns, database modeling, authentication, and asynchronous notification handling within a unified architecture.
 
 
+
 ## System Architecture
 
 TeamFlow follows a **modular monolith architecture**. The React frontend communicates with a Node.js and Express REST API. Business rules are enforced in the backend before Prisma accesses PostgreSQL.
@@ -122,6 +123,225 @@ The core domain entities include:
 - UserPreference
 
 The persistent data model is defined in server/prisma/schema.prisma, with schema evolution captured through the migration history in server/prisma/migrations/.
+
+## Entity Relationship Diagram
+
+The ERD below represents TeamFlow's actual PostgreSQL data model. It includes project membership, hierarchical tasks, dependencies, comments and mentions, attachments, RCA investigations and reviews, the transactional notification outbox, and persisted user preferences.
+
+```mermaid
+ER-Diagram
+
+    User {
+        int id PK
+        string name
+        string email UK
+        string passwordHash
+        SystemRole systemRole
+        datetime createdAt
+        datetime updatedAt
+    }
+
+    Project {
+        int id PK
+        string name
+        string description
+        ProjectStatus status
+        int createdById FK
+        datetime createdAt
+        datetime updatedAt
+    }
+
+    ProjectMember {
+        int id PK
+        int projectId FK
+        int userId FK
+        ProjectRole role
+        datetime joinedAt
+    }
+
+    Task {
+        int id PK
+        int projectId FK
+        string title
+        string description
+        TaskStatus status
+        TaskPriority priority
+        int assigneeId FK
+        datetime dueDate
+        int createdById FK
+        int parentId FK
+        datetime createdAt
+        datetime updatedAt
+    }
+
+    TaskRelation {
+        int id PK
+        int sourceTaskId FK
+        int targetTaskId FK
+        RelationType type
+    }
+
+    ActivityLog {
+        int id PK
+        int projectId FK
+        int taskId FK
+        int actorId FK
+        ActivityEventType eventType
+        json metadata
+        datetime createdAt
+    }
+
+    Comment {
+        int id PK
+        int taskId FK
+        int authorId FK
+        string content
+        datetime editedAt
+        datetime createdAt
+        datetime updatedAt
+    }
+
+    CommentMention {
+        int id PK
+        int commentId FK
+        int userId FK
+        datetime createdAt
+    }
+
+    Attachment {
+        int id PK
+        int taskId FK
+        int uploadedById FK
+        string originalName
+        string storageKey UK
+        string mimeType
+        int size
+        datetime createdAt
+    }
+
+    RCA {
+        int id PK
+        int projectId FK
+        string title
+        string description
+        RCASeverity severity
+        RCAStatus status
+        int reviewRound
+        int createdById FK
+        datetime createdAt
+        datetime updatedAt
+    }
+
+    RCASection {
+        int id PK
+        int rcaId FK
+        RCASectionType type
+        string content
+        datetime createdAt
+        datetime updatedAt
+    }
+
+    Review {
+        int id PK
+        int rcaId FK
+        int reviewerId FK
+        int round
+        ReviewDecision decision
+        string comment
+        datetime decidedAt
+        datetime createdAt
+    }
+
+    EventOutbox {
+        int id PK
+        NotificationEventType eventType
+        int entityId
+        int actorId FK
+        json metadata
+        OutboxProcessingState processingState
+        int processingAttempts
+        string processingError
+        datetime claimedAt
+        datetime processedAt
+        datetime createdAt
+    }
+
+    Notification {
+        int id PK
+        int recipientId FK
+        int eventId FK
+        string dedupKey
+        string title
+        string message
+        boolean read
+        EmailDeliveryState emailState
+        int emailAttempts
+        string emailError
+        datetime claimedAt
+        datetime createdAt
+    }
+
+    UserPreference {
+        int id PK
+        int userId FK
+        ThemeMode theme
+        boolean emailOptOut
+        datetime createdAt
+        datetime updatedAt
+    }
+
+    ProjectViewPreference {
+        int id PK
+        int userId FK
+        int projectId FK
+        TaskViewMode viewMode
+        datetime createdAt
+        datetime updatedAt
+    }
+
+    User ||--o{ Project : creates
+    User ||--o{ ProjectMember : joins
+    Project ||--o{ ProjectMember : contains
+
+    Project ||--o{ Task : contains
+    User ||--o{ Task : creates
+    User ||--o{ Task : assigned
+
+    Task o|--o{ Task : parent_of
+
+    Task ||--o{ TaskRelation : source
+    Task ||--o{ TaskRelation : target
+
+    Project ||--o{ ActivityLog : records
+    Task ||--o{ ActivityLog : generates
+    User ||--o{ ActivityLog : performs
+
+    Task ||--o{ Comment : has
+    User ||--o{ Comment : writes
+
+    Comment ||--o{ CommentMention : contains
+    User ||--o{ CommentMention : mentioned
+
+    Task ||--o{ Attachment : has
+    User ||--o{ Attachment : uploads
+
+    Project ||--o{ RCA : contains
+    User ||--o{ RCA : creates
+
+    RCA ||--o{ RCASection : contains
+    RCA ||--o{ Review : receives
+    User ||--o{ Review : performs
+
+    User ||--o{ EventOutbox : triggers
+    EventOutbox ||--o{ Notification : produces
+    User ||--o{ Notification : receives
+
+    User ||--o| UserPreference : has
+
+    User ||--o{ ProjectViewPreference : owns
+    Project ||--o{ ProjectViewPreference : stores
+```
+
 
 ## Service Interaction Overview
 A typical request in TeamFlow follows this flow:
