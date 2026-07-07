@@ -1,4 +1,4 @@
-# TeamFlow Monorepo Foundation
+# TeamFlow
 
 GitHub Repository: [https://github.com/HiteshSai1006/TeamFlow](https://github.com/HiteshSai1006/TeamFlow)
 
