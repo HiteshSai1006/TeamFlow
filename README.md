@@ -14,8 +14,6 @@ This repository presents a complete implementation of the TeamFlow system, inclu
 ## Project Overview
 TeamFlow enables teams to create and manage projects, coordinate tasks, attach supporting files, maintain task hierarchies and dependencies, and record structured RCA workflows for review and approval. The application demonstrates practical use of modern web-development patterns, database modeling, authentication, and asynchronous notification handling within a unified architecture.
 
-## System Architecture
-The application follows a layered modular-monolith architecture designed for clarity, maintainability, and extensibility.
 
 ## System Architecture
 
