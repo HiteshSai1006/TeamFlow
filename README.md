@@ -4,37 +4,40 @@ TeamFlow is a full-stack web application developed as a modular monolith for col
 
 ## Project Summary
 This repository presents a complete implementation of the TeamFlow system, including:
-- a React-based client application
-- an Express.js backend with domain-driven modules
-- a Prisma-managed PostgreSQL database
-- migration files and schema definitions
-- architectural documentation and implementation notes
-- setup guidance for local execution and evaluation
+- A React-based client application
+- An Express.js backend with domain-driven modules
+- A Prisma-managed PostgreSQL database
+- Migration files and schema definitions
+- Architectural documentation and implementation notes
+- Setup guidance for local execution and evaluation
 
 ## Project Overview
 TeamFlow enables teams to create and manage projects, coordinate tasks, attach supporting files, maintain task hierarchies and dependencies, and record structured RCA workflows for review and approval. The application demonstrates practical use of modern web-development patterns, database modeling, authentication, and asynchronous notification handling within a unified architecture.
 
-
+---
 
 ## System Architecture
 
 TeamFlow follows a **modular monolith architecture**. The React frontend communicates with a Node.js and Express REST API. Business rules are enforced in the backend before Prisma accesses PostgreSQL.
 
+### Architecture Overview
+A visual system architecture diagram is available at [system-architecture.png](docs/diagrams/system-architecture.png). For a complete breakdown of design boundaries, transactional boundaries, and architectural trade-offs, see the full [Architecture and Design Document](docs/architecture-and-design.md).
+
 ```mermaid
 flowchart TB
-    USER["👤 User"]
+    USER["User"]
 
-    subgraph FRONTEND["Frontend — React + Vite"]
-        UI["Projects · Tasks · RCA · Reports"]
-        VIEWS["Kanban · Calendar · List"]
-        UX["Notifications · Light/Dark Theme"]
+    subgraph FRONTEND["Frontend - React + Vite"]
+        UI["Projects * Tasks * RCA * Reports"]
+        VIEWS["Kanban * Calendar * List"]
+        UX["Notifications * Light/Dark Theme"]
     end
 
-    subgraph BACKEND["Backend — Node.js + Express"]
+    subgraph BACKEND["Backend - Node.js + Express"]
         API["REST API"]
-        MODULES["Auth · Projects · Tasks · Comments"]
-        MORE["Attachments · RCA · Reviews · Reports"]
-        PREFS["Notifications · Preferences"]
+        MODULES["Auth * Projects * Tasks * Comments"]
+        MORE["Attachments * RCA * Reviews * Reports"]
+        PREFS["Notifications * Preferences"]
     end
 
     subgraph RULES["Business Rules"]
@@ -108,6 +111,8 @@ IN-APP NOTIFICATION   MOCK EMAIL DELIVERY
 
 This architecture enables the application to separate presentation, API handling, business logic, persistence, and asynchronous notification concerns while remaining deployable as a single cohesive system.
 
+---
+
 ## Domain Model and Data Design
 The core domain entities include:
 - User
@@ -118,11 +123,18 @@ The core domain entities include:
 - Comment
 - Attachment
 - RCA
-- RCAReview
+- Review
+- EventOutbox
 - Notification
 - UserPreference
+- ProjectViewPreference
+- CommentMention
+- ActivityLog
 
-The persistent data model is defined in server/prisma/schema.prisma, with schema evolution captured through the migration history in server/prisma/migrations/.
+### Domain Model Overview
+The complete Entity Relationship Diagram (ERD) is documented at [erd-domain-model.png](docs/diagrams/erd-domain-model.png). It represents TeamFlow's PostgreSQL model, highlighting project-scoped boundaries for hierarchies and dependencies. For detailed entity descriptions and constraints, refer to [Architecture and Design Document](docs/architecture-and-design.md).
+
+---
 
 ## Entity Relationship Diagram
 
@@ -342,6 +354,7 @@ erDiagram
     Project ||--o{ ProjectViewPreference : stores
 ```
 
+---
 
 ## Service Interaction Overview
 A typical request in TeamFlow follows this flow:
@@ -352,32 +365,40 @@ A typical request in TeamFlow follows this flow:
 5. Important actions emit events to the outbox for downstream processing.
 6. A background worker processes those events to generate notifications and related artifacts.
 
+---
+
 ## Architectural and Design Decisions
 The implementation reflects a number of deliberate design choices:
 - A modular monolith architecture was selected to balance maintainability, clarity, and deployment simplicity.
-- Prisma ORM and PostgreSQL were used to provide strong schema management and reliable relational data handling.
+- PostgreSQL and the generated Prisma Client with schema-driven database access are used to provide reliable relational data handling.
 - An event-outbox pattern was adopted to support dependable notification processing.
-- Task hierarchy and dependency rules are enforced at the service layer and database level to preserve data consistency.
+- Task hierarchy and dependency rules are project-scoped and validated at the service layer, backed by database constraints.
 - Local file storage is used for attachment handling in the development environment, with metadata persisted in the database.
 
-Further discussion of these decisions is available in docs/architecture-decisions.md and docs/engineering-journal.md.
+Further discussion of these decisions is available in the [Architecture and Design Document](docs/architecture-and-design.md).
+
+---
 
 ## Features Implemented
 - Secure authentication with JWT-based session cookies
-- Project creation, membership, and role-based access management
+- Project creation, membership management, and role-based access control
 - Task creation, assignment, status tracking, comments, attachments, parent-child hierarchy, and dependency relationships
-- Structured RCA workflow with review and approval logic
+- Structured RCA workflow with multi-round review and approval logic
 - Reporting and analytics views
 - CSV-based task export
 - User preference management for theme and task-view settings
 
+---
+
 ## Technology Stack
-- Frontend: React with Vite
-- Backend: Node.js with Express
-- Database: PostgreSQL 15
-- ORM: Prisma
+- Frontend: React with Vite (Vanilla CSS)
+- Backend: Node.js >= 16 with Express
+- Database: PostgreSQL 15 (Dockerized)
+- ORM: Prisma 5.x (`@prisma/client`)
 - Authentication: JWT with HttpOnly cookies
 - Infrastructure: Docker Compose for local database orchestration
+
+---
 
 ## Getting Started
 1. Clone the repository
@@ -392,6 +413,7 @@ Further discussion of these decisions is available in docs/architecture-decision
 3. Configure and start the backend
    ```bash
    cd server
+   cp .env.example .env
    npm install
    npx prisma migrate deploy
    npm run dev
@@ -403,16 +425,64 @@ Further discussion of these decisions is available in docs/architecture-decision
    npm run dev
    ```
 
+---
+
 ## Environment Variables
 | Variable | Required | Example | Description |
 |----------|----------|---------|-------------|
-| DATABASE_URL | Yes | postgresql://teamflow_user:teamflow_password@localhost:5435/teamflow_db?schema=public | PostgreSQL connection string |
-| JWT_SECRET | Yes | your_secure_secret_here | Secret used to sign JWTs |
-| PORT | Optional | 5000 | Port for the Express API |
-| NODE_ENV | Optional | development | Runtime environment |
+| `DATABASE_URL` | Yes | `postgresql://teamflow_user:teamflow_password@localhost:5435/teamflow_db?schema=public` | PostgreSQL connection string |
+| `JWT_SECRET` | Yes | `your_secure_secret_here` | Secret used to sign JWTs |
+| `PORT` | Optional | `5000` | Port for the Express API |
+| `NODE_ENV` | Optional | `development` | Runtime environment |
+
+---
+
+## Project Structure
+```text
+.
+├── client/                     # React + Vite frontend
+│   └── src/
+│       └── features/          # Feature-based UI modules
+├── server/                     # Express backend
+│   ├── prisma/                 # Prisma schema & migrations
+│   ├── src/
+│   │   ├── config/            # App & environment config
+│   │   ├── middleware/        # Express middlewares (auth, error handling, etc.)
+│   │   ├── modules/           # Domain modules (auth, project, task, rca, ...)
+│   │   ├── services/          # Business-logic services
+│   │   └── utils/             # Helper utilities
+│   ├── uploads/                # Local attachment storage & mock email logs
+│   ├── .env.example            # Template environment variables
+│   └── package.json
+└── docs/                       # Engineering documentation
+    ├── architecture-and-design.md # System architecture and decisions document
+    └── diagrams/               # Architecture diagrams and flowcharts folder
+```
+
+- **Docker & Docker Compose**: Docker desktop environment for orchestrating local containers.
+- **PostgreSQL**: Containerized database engine using image `postgres:15-alpine`.
+
+---
 
 ## Database Schema and Migrations
-The application schema is defined in server/prisma/schema.prisma, and the migration history is maintained in server/prisma/migrations/.
+The application schema is defined in [schema.prisma](file:///D:/Projects/New%20folder/server/prisma/schema.prisma), and the migration history is maintained in the `server/prisma/migrations/` directory.
+
+Currently, there are **13 database migrations** applied chronologically to establish the schema:
+1. `20260705000000_init_auth`
+2. `20260705010000_init_projects`
+3. `20260705020000_align_project_domain`
+4. `20260705030000_add_task_management`
+5. `20260705040000_add_task_relations`
+6. `20260705050000_add_task_comments`
+7. `20260705060000_add_task_attachments`
+8. `20260705070000_add_rca_workflow`
+9. `20260705080000_add_notifications`
+10. `20260706093000_add_project_view_preferences`
+11. `20260706100000_rename_preferences_to_user_preferences`
+12. `20260706110000_add_comment_mentions`
+13. `20260706120000_add_task_hierarchy`
+
+---
 
 ## Assumptions and Design Scope
 - Task dependency and hierarchy relationships are constrained to a single project.
@@ -420,11 +490,15 @@ The application schema is defined in server/prisma/schema.prisma, and the migrat
 - RCA comments and attachments are intentionally limited to review decisions.
 - Tasks are not deleted in order to preserve integrity and auditability.
 
+---
+
 ## Known Limitations
 - Attachments are stored locally in the server uploads directory rather than in cloud object storage.
 - File uploads are limited to one file per request and a 5 MB size cap.
 - Email delivery is simulated through a mock worker rather than a production SMTP provider.
 - Some reporting indicators are visual only and do not block workflow actions.
+
+---
 
 ## Verification and Validation
 The repository includes verification helpers for migrations, RCA handling, notifications, hierarchy logic, and reporting flows. These can be executed from the server directory as needed:
@@ -442,13 +516,19 @@ node verify_mentions.js
 node verify_hierarchy.js
 ```
 
+---
+
 ## Documentation
-- Architecture decisions: docs/architecture-decisions.md
-- Engineering journal: docs/engineering-journal.md
-- Diagram assets: docs/diagrams/
+- Architecture and Design Document: [docs/architecture-and-design.md](docs/architecture-and-design.md)
+- Diagram Assets: `docs/diagrams/`
+
+---
 
 ## Demo Video
 A short demonstration video outlining the application workflow and core features will be provided as part of the submission package.
+**Demo Video:** _Link will be added before submission._
+
+---
 
 ## GitHub Repository
-https://github.com/HiteshSai1006/TeamFlow
+[https://github.com/HiteshSai1006/TeamFlow](https://github.com/HiteshSai1006/TeamFlow)
